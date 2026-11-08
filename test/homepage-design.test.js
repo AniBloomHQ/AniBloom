@@ -17,7 +17,7 @@ test("AniBloom homepage follows approved brand and content structure", () => {
   const html = render();
   for (const text of ["AniBloom — Anime Discovery for Nuvio", "Discover anime.<br>Every season.", "Anime discovery catalogs, organized for Nuvio.", "Seasonal discovery", "Airing now &amp; next", "One-click installation", "Explore catalogs", "What AniBloom is", "What AniBloom is not", "Support the addon", "Where anime blooms.", "Open Source"]) assert.ok(html.includes(text), text);
   assert.match(html, /href="\/assets\/anibloom\.css"/);
-  assert.doesNotMatch(html, /AniList|ARM mapping|identity mapping|TMDB|TVDB|IMDb/i);
+  assert.doesNotMatch(html, /ARM mapping|identity mapping|TMDB|TVDB|IMDb/i);
 });
 
 test("homepage Open Source footer points to the canonical organization repository", () => {
@@ -38,7 +38,7 @@ test("all eight standard catalogs render in one uncategorized grid with original
     "Upcoming 3 days", "Previous 3 days", "Current Season", "Current Season Movies",
     "Previous Season", "Previous Season Movies", "Upcoming Season", "Upcoming Season Movies",
   ]);
-  assert.deepEqual(labels.slice(8), ["Airing Today", "Upcoming — 7 days"]);
+  assert.deepEqual(labels.slice(8), ["Airing Today", "Upcoming — 7 days", "Top Anime of the Season"]);
   const ids = ["upcoming_3_days", "current_season", "previous_season", "upcoming_season", "previous_3_days", "current_season_movies", "previous_season_movies", "upcoming_season_movies"];
   for (const id of ids) assert.ok(html.includes("/" + id + ".json"), id);
   assert.equal((html.match(/class="catalog-card"/g) || []).length, 8);
@@ -161,10 +161,12 @@ test("About contains only identity details and support, without a duplicate inst
   assert.doesNotMatch(html, /footer[^]*Donate/);
 });
 
-test("homepage offers opt-in extended catalogs without enabling them by default", () => {
+test("homepage offers artwork selection while all eleven catalogs are included", () => {
   const html = render();
-  assert.match(html, /id="extended-catalogs"/);
-  assert.match(html, /Include optional Airing Today and Upcoming 7 Days/);
-  assert.match(html, /extended\?\.checked/);
-  assert.match(html, /"\/extended"/);
+  assert.match(html, /id="artwork-provider"/);
+  assert.match(html, /BetterPosters/);
+  assert.match(html, /PostersPlus/);
+  assert.match(html, /Home catalog customization/);
+  assert.doesNotMatch(html, /id="extended-catalogs"/);
+  assert.doesNotMatch(html, /id="ranked-catalogs"/);
 });

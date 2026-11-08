@@ -5,6 +5,78 @@
   },
   "rewrites": [
     {
+      "source": "/betterposters/manifest.json",
+      "destination": "/api/resolver-manifest?artwork=betterposters"
+    },
+    {
+      "source": "/betterposters/catalog/:type/:id.json",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&artwork=betterposters"
+    },
+    {
+      "source": "/betterposters/catalog/:type/:id/:extra*",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&extra=:extra*&artwork=betterposters"
+    },
+    {
+      "source": "/postersplus/manifest.json",
+      "destination": "/api/resolver-manifest?artwork=postersplus"
+    },
+    {
+      "source": "/postersplus/catalog/:type/:id.json",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&artwork=postersplus"
+    },
+    {
+      "source": "/postersplus/catalog/:type/:id/:extra*",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&extra=:extra*&artwork=postersplus"
+    },
+    {
+      "source": "/romaji/betterposters/manifest.json",
+      "destination": "/api/resolver-manifest?titleMode=romaji&artwork=betterposters"
+    },
+    {
+      "source": "/romaji/betterposters/catalog/:type/:id.json",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&titleMode=romaji&artwork=betterposters"
+    },
+    {
+      "source": "/romaji/betterposters/catalog/:type/:id/:extra*",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&extra=:extra*&titleMode=romaji&artwork=betterposters"
+    },
+    {
+      "source": "/romaji/postersplus/manifest.json",
+      "destination": "/api/resolver-manifest?titleMode=romaji&artwork=postersplus"
+    },
+    {
+      "source": "/romaji/postersplus/catalog/:type/:id.json",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&titleMode=romaji&artwork=postersplus"
+    },
+    {
+      "source": "/romaji/postersplus/catalog/:type/:id/:extra*",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&extra=:extra*&titleMode=romaji&artwork=postersplus"
+    },
+    {
+      "source": "/native/betterposters/manifest.json",
+      "destination": "/api/resolver-manifest?titleMode=native&artwork=betterposters"
+    },
+    {
+      "source": "/native/betterposters/catalog/:type/:id.json",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&titleMode=native&artwork=betterposters"
+    },
+    {
+      "source": "/native/betterposters/catalog/:type/:id/:extra*",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&extra=:extra*&titleMode=native&artwork=betterposters"
+    },
+    {
+      "source": "/native/postersplus/manifest.json",
+      "destination": "/api/resolver-manifest?titleMode=native&artwork=postersplus"
+    },
+    {
+      "source": "/native/postersplus/catalog/:type/:id.json",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&titleMode=native&artwork=postersplus"
+    },
+    {
+      "source": "/native/postersplus/catalog/:type/:id/:extra*",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&extra=:extra*&titleMode=native&artwork=postersplus"
+    },
+    {
       "source": "/romaji/ranked/manifest.json",
       "destination": "/api/resolver-manifest?titleMode=romaji&ranked=1"
     },

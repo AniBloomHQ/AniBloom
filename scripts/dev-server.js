@@ -83,9 +83,9 @@ export function createPreviewServer() {
       const { default: home } = await import(`../api/home-selector.js?preview=${Date.now()}`);
       return home(req, res);
     }
-    if (/^\/(?:(?:romaji|native)\/)?(?:extended\/)?(?:ranked\/)?manifest\.json$/.test(url.pathname)) return manifest(req, res);
+    if (/^\/(?:(?:romaji|native)\/)?(?:extended\/)?(?:ranked\/)?(?:(?:betterposters|postersplus)\/)?manifest\.json$/.test(url.pathname)) return manifest(req, res);
     if (url.pathname === "/version") return res.json({ version: ADDON_VERSION });
-    if (/^\/(?:(?:romaji|native)\/)?(?:extended\/)?(?:ranked\/)?catalog\//.test(url.pathname)) {
+    if (/^\/(?:(?:romaji|native)\/)?(?:extended\/)?(?:ranked\/)?(?:(?:betterposters|postersplus)\/)?catalog\//.test(url.pathname)) {
       const webResponse = await catalog.fetch(new Request(url, {
         method: request.method,
         headers: request.headers,

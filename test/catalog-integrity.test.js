@@ -66,7 +66,7 @@ test("catalog definitions preserve the supported catalogs with one consistent Nu
 
   assert.deepEqual(
     definitions.map(({ id }) => id),
-    ["upcoming_season", "current_season", "previous_season", "upcoming_season_movies", "current_season_movies", "previous_season_movies", "upcoming_3_days", "previous_3_days"],
+    ["upcoming_season", "current_season", "previous_season", "upcoming_season_movies", "current_season_movies", "previous_season_movies", "upcoming_3_days", "previous_3_days", "airing_today", "upcoming_7_days", "top_season"],
   );
   assert.equal(new Set(definitions.map(({ id }) => id)).size, definitions.length);
 

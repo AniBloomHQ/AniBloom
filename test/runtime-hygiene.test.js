@@ -100,7 +100,7 @@ test("README matches the public AniBloom product, installation, catalog and supp
   for (const provider of ["ioametadata", "Xperience", "BingeCat"]) assert.ok(readme.includes(provider), provider);
   assert.match(readme, /does not host, store, stream, or distribute anime/i);
   assert.doesNotMatch(readme, /ARM|Fribb|AniBridge|AniMap|TMDB|TVDB|IMDb|provider identity resolution/i);
-  assert.doesNotMatch(home, /AniList|ARM mapping|identity mapping|provider identity|TMDB|TVDB|IMDb|metadata addon|identity and metadata flow/i);
+  assert.doesNotMatch(home, /ARM mapping|identity mapping|provider identity|TMDB|TVDB|IMDb|metadata addon|identity and metadata flow/i);
 });
 test("Vercel configuration enables Fluid Compute for production functions", async () => {
   const config = JSON.parse(await readFile("vercel.json", "utf8"));
@@ -119,7 +119,7 @@ test("home page uses only canonical unversioned catalog URLs", async () => {
   assert.doesNotMatch(source, /v5 resolver/i);
   assert.match(source, /const type = id\.endsWith\("_movies"\) \? "movie" : "series";/);
   assert.match(source, /const url = `\$\{BASE_URL\}\$\{routePrefix\}\/catalog\/\$\{type\}\/\$\{id\}\.json`;/);
-  assert.match(source, /routePrefix: "\/extended"/, "optional catalog links must use the fixed extended route prefix");
+  assert.match(source, /ADDITIONAL_CATALOGS\.map\(\(item\) => card\(item, \{ optional: true \}\)\)/, "additional cards use canonical unversioned catalog URLs");
 });
 
 

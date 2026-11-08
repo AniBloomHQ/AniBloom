@@ -16,20 +16,18 @@ const seasons = {
   upcoming: { season: "WINTER", year: 2027 },
 };
 
-test("Top Season is opt-in, never silently enlarges existing default or extended manifests", () => {
-  const defaultList = catalogDefinitions(seasons);
+test("Top Season and extended airing catalogs appear in all manifest variants", () => {
+  const defaults = catalogDefinitions(seasons);
   const extended = catalogDefinitions(seasons, "english", { includeExtended: true });
-  assert.equal(defaultList.length, 8);
-  assert.equal(extended.length, 10);
-  assert.equal(defaultList.some(c => c.id === "top_season"), false);
-  assert.equal(extended.some(c => c.id === "top_season"), false);
+  assert.equal(defaults.length, 11);
+  assert.deepEqual(defaults.map(c => c.id), extended.map(c => c.id));
+  assert.deepEqual(defaults.slice(-3).map(c => c.id), ["airing_today", "upcoming_7_days", "top_season"]);
 
   for (const mode of ["english", "romaji", "native"]) {
     const ranked = buildManifest(seasons, mode, { includeTop: true });
     const both = buildManifest(seasons, mode, { includeTop: true, includeExtended: true });
-    assert.deepEqual(ranked.catalogs.slice(0, 8).map(c => c.id), defaultList.map(c => c.id));
-    assert.equal(ranked.catalogs.length, 9);
-    assert.equal(both.catalogs.length, 11);
+    assert.deepEqual(ranked.catalogs, both.catalogs);
+    assert.equal(ranked.catalogs.length, 11);
     assert.equal(ranked.catalogs.at(-1).id, "top_season");
     assert.equal(ranked.catalogs.at(-1).type, "series");
     assert.match(ranked.catalogs.at(-1).name, mode === "native" ? /人気/ : /Top Anime/);
@@ -135,7 +133,7 @@ test("ranked manifests and catalog extras have explicit local and Vercel routing
         const url = origin + prefix + "/manifest.json";
         const response = await fetch(url);
         assert.equal(response.status, 200, url);
-        assert.equal((await response.json()).catalogs.length, suffix === "/ranked" ? 9 : 11);
+        assert.equal((await response.json()).catalogs.length, 11);
         for (const shape of ["/manifest.json", "/catalog/:type/:id.json", "/catalog/:type/:id/:extra*"]) {
           assert.equal(routes.filter(r => r.source === prefix + shape).length, 1, prefix + shape);
         }
@@ -186,9 +184,9 @@ test("cached catalogs reuse one normalized response across poster selections and
   }
 });
 
-test("Top Season does not become reachable on the ordinary unranked path", async () => {
+test("Top Season is reachable on the canonical path and validates input before upstream calls", async () => {
   const { default: handler } = await import("../api/catalog-source.js");
-  const response = await handler.fetch(new Request("https://example.test/catalog/series/top_season.json"));
-  assert.equal(response.status, 404);
-  assert.deepEqual(await response.json(), { metas: [] });
+  const response = await handler.fetch(new Request("https://example.test/catalog/series/top_season.json?skip=1001"));
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).code, "INVALID_SKIP");
 });

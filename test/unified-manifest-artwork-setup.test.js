@@ -156,7 +156,7 @@ test("homepage exposes all eleven cards and configures artwork at install time w
   assert.doesNotMatch(html,/id="extended-catalogs"/);
   assert.doesNotMatch(html,/id="ranked-catalogs"/);
   assert.match(html,/artwork\.value/);
-  assert.match(html,/\/"betterposters"/);
-  assert.match(html,/\/"postersplus"/);
+  assert.match(html,/"\/betterposters"/);
+  assert.match(html,/"\/postersplus"/);
   assert.doesNotMatch(html,/access_key=|api_key=|secret=/i);
 });
