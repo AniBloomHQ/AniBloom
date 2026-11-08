@@ -14,41 +14,34 @@ function renderHomepage() {
   return html;
 }
 
-test("homepage shows all three additional P1/P2 catalogs in a separate included section", () => {
+test("homepage contains only the remaining ranked additional catalog card", () => {
   const html = renderHomepage();
   const marker = '<section class="optional-catalogs" aria-labelledby="optional-catalogs-heading">';
-  assert.ok(html.includes(marker), "extended catalogs must be discoverable on the homepage");
-
-  const optional = html.split(marker)[1]?.split("</section>")[0];
-  assert.ok(optional, "optional catalog section must be explicitly bounded");
-  assert.match(optional, /<h3 id="optional-catalogs-heading">More included catalogs<\/h3>/);
-  assert.match(optional, /eleven/i);
-  assert.match(optional, /extra requests/i);
-  assert.match(optional, /<div class="catalog-grid optional-catalog-grid">/);
-  assert.equal((optional.match(/class="catalog-card catalog-card-optional"/g) || []).length, 3);
-  assert.deepEqual(
-    [...optional.matchAll(/<strong>([^<]+)<\/strong>/g)].map(([, title]) => title),
-    ["Airing Today", "Upcoming — 7 days", "Top Anime of the Season"],
-  );
-  assert.match(optional, /href="https:\/\/anibloom\.vercel\.app\/catalog\/series\/airing_today\.json"/);
-  assert.match(optional, /href="https:\/\/anibloom\.vercel\.app\/catalog\/series\/upcoming_7_days\.json"/);
-  assert.match(optional, /data-icon="calendar-today"/);
-  assert.match(optional, /data-icon="calendar-week"/);
-  assert.match(optional, /href="https:\/\/anibloom\.vercel\.app\/catalog\/series\/top_season\.json"/);
+  assert.ok(html.includes(marker), "ranked catalog must remain discoverable");
+  const additional = html.split(marker)[1]?.split("</section>")[0];
+  assert.ok(additional);
+  assert.match(additional, /<h3 id="optional-catalogs-heading">More included catalogs<\/h3>/);
+  assert.match(additional, /All 9 catalogs/);
+  assert.match(additional, /extra requests/);
+  assert.equal((additional.match(/class="catalog-card catalog-card-optional"/g) || []).length, 1);
+  assert.deepEqual([...additional.matchAll(/<strong>([^<]+)<\/strong>/g)].map(([,label]) => label),
+    ["Top Anime of the Season"]);
+  assert.match(additional, /href="https:\/\/anibloom\.vercel\.app\/catalog\/series\/top_season\.json"/);
+  assert.doesNotMatch(html, /Airing Today|Upcoming — 7 days|airing_today|upcoming_7_days/);
 });
 
-test("homepage preserves original eight cards while advertising all options and artwork selector", () => {
+test("homepage preserves all eight existing catalog cards and no artwork provider selector", () => {
   const html = renderHomepage();
   const mainGrid = html.split('<div class="catalog-grid">')[1]?.split("</div>")[0];
   assert.ok(mainGrid);
   assert.equal((mainGrid.match(/class="catalog-card"/g) || []).length, 8);
-  assert.equal((html.match(/class="catalog-card catalog-card-optional"/g) || []).length, 3);
+  assert.equal((html.match(/class="catalog-card catalog-card-optional"/g) || []).length, 1);
   assert.doesNotMatch(html, /id="artwork-provider"/);
   assert.doesNotMatch(html, /id="extended-catalogs"/);
   assert.doesNotMatch(html, /id="ranked-catalogs"/);
 });
 
-test("homepage advertises every supported catalog without extra server-side fetches", () => {
+test("homepage advertises the same nine catalogs as every previous manifest variant", () => {
   const seasons = {
     ongoing: { season: "FALL", year: 2026 },
     previous: { season: "SUMMER", year: 2026 },
@@ -57,22 +50,20 @@ test("homepage advertises every supported catalog without extra server-side fetc
   const standard = buildManifest(seasons);
   const extended = buildManifest(seasons, "english", { includeExtended: true });
   const ranked = buildManifest(seasons, "english", { includeTop: true });
-  const both = buildManifest(seasons, "english", { includeExtended: true, includeTop: true });
-  assert.deepEqual([standard, extended, ranked, both].map(m => m.catalogs.length), [11, 11, 11, 11]);
+  const combined = buildManifest(seasons, "english", { includeExtended: true, includeTop: true });
+  assert.deepEqual([standard, extended, ranked, combined].map(m => m.catalogs.length), [9,9,9,9]);
   assert.deepEqual(extended.catalogs, standard.catalogs);
-  assert.deepEqual(standard.catalogs.slice(-3).map(c => c.id), ["airing_today", "upcoming_7_days", "top_season"]);
+  assert.equal(standard.catalogs.at(-1).id, "top_season");
   const html = renderHomepage();
   assert.doesNotMatch(html, /fetch\(\s*["'`]\/extended\/catalog/);
 });
 
-test("optional catalog cards retain responsive grid layout and accessible icon/style behavior", () => {
+test("remaining ranked card keeps accessible label and responsive grid styles", () => {
   const css = readFileSync(new URL("../assets/anibloom.css", import.meta.url), "utf8");
   const html = renderHomepage();
   assert.match(css, /\.optional-catalogs\{/);
   assert.match(css, /\.optional-catalogs h3\{/);
   assert.match(css, /@media\(max-width:700px\)[\s\S]*?\.catalog-grid\{grid-template-columns:1fr/);
   assert.match(html, /aria-labelledby="optional-catalogs-heading"/);
-  assert.match(html, /aria-label="Open Airing Today catalog"/);
-  assert.match(html, /aria-label="Open Upcoming — 7 days catalog"/);
   assert.match(html, /aria-label="Open Top Anime of the Season catalog"/);
 });
