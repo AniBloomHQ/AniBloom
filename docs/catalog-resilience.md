@@ -31,6 +31,14 @@ Seasonal catalog manifests advertise a bounded optional `genre` filter. AniList 
 
 Additional scheduled feeds reuse the existing rolling identity and pagination pipeline: **Airing Today** (upcoming entries until the next midnight in Asia/Tokyo (JST, UTC+9)) and **Upcoming 7 Days** (rolling 168 hours). These remain subject to the eight-page schedule budget and 30-second catalog freshness policy; large weeks may be incomplete rather than triggering unbounded AniList queries. Seasonal boundaries also follow Japan Standard Time. AniList airing timestamps remain absolute Unix instants; the rolling 3-day and 7-day periods are unchanged. The default Nuvio manifest retains eight catalogs. The two new feeds are only advertised through dedicated, opt-in extended manifest URLs (English/Romaji/Native). This avoids automatically increasing the upstream request load for current installations; any actual extended-feed traffic still counts toward the shared AniList budget.
 
+## P2 ranked discovery and direct artwork projection (pending release)
+
+Optional `top_season` uses AniList's `POPULARITY_DESC, SCORE_DESC, ID` sort on the complete current-season eligible series candidate set upstream, with the existing one-50-item-page-per-request rule. Rank is not estimated from the current/first season page. Ranked requests are opt-in via fixed `/ranked` manifests and have a distinct `id` in the normalized and AniList query caches. Standard eight-catalog and extended ten-catalog manifests remain unchanged.
+
+The optional `artwork` catalog extra selects a poster URL provider **after** shared identity resolution, title projection and the normalized catalog cache read. Artwork modes therefore reuse identical normalized-response cache keys, Redis rate-limit budgets and AniList requests. Missing IMDb/AniList identity and absent/invalid PostersPlus base fall back to the original AniList cover. No AniBloom-hosted proxy, image verification, extra requests or credentials in image URLs. An image failing at the external CDN cannot be detected and substituted by the addon; Nuvio/metadata-provider image fallback applies.
+
+See [P2 configuration and performance safeguards](p2-enhancements.md).
+
 ## Request behavior
 
 1. A fresh normalized catalog response is returned from Runtime Cache.

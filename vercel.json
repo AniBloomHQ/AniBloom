@@ -5,6 +5,78 @@
   },
   "rewrites": [
     {
+      "source": "/romaji/ranked/manifest.json",
+      "destination": "/api/resolver-manifest?titleMode=romaji&ranked=1"
+    },
+    {
+      "source": "/romaji/ranked/catalog/:type/:id.json",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&titleMode=romaji&ranked=1"
+    },
+    {
+      "source": "/romaji/ranked/catalog/:type/:id/:extra*",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&extra=:extra*&titleMode=romaji&ranked=1"
+    },
+    {
+      "source": "/romaji/extended/ranked/manifest.json",
+      "destination": "/api/resolver-manifest?titleMode=romaji&extended=1&ranked=1"
+    },
+    {
+      "source": "/romaji/extended/ranked/catalog/:type/:id.json",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&titleMode=romaji&extended=1&ranked=1"
+    },
+    {
+      "source": "/romaji/extended/ranked/catalog/:type/:id/:extra*",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&extra=:extra*&titleMode=romaji&extended=1&ranked=1"
+    },
+    {
+      "source": "/native/ranked/manifest.json",
+      "destination": "/api/resolver-manifest?titleMode=native&ranked=1"
+    },
+    {
+      "source": "/native/ranked/catalog/:type/:id.json",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&titleMode=native&ranked=1"
+    },
+    {
+      "source": "/native/ranked/catalog/:type/:id/:extra*",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&extra=:extra*&titleMode=native&ranked=1"
+    },
+    {
+      "source": "/native/extended/ranked/manifest.json",
+      "destination": "/api/resolver-manifest?titleMode=native&extended=1&ranked=1"
+    },
+    {
+      "source": "/native/extended/ranked/catalog/:type/:id.json",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&titleMode=native&extended=1&ranked=1"
+    },
+    {
+      "source": "/native/extended/ranked/catalog/:type/:id/:extra*",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&extra=:extra*&titleMode=native&extended=1&ranked=1"
+    },
+    {
+      "source": "/ranked/manifest.json",
+      "destination": "/api/resolver-manifest?ranked=1"
+    },
+    {
+      "source": "/ranked/catalog/:type/:id.json",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&ranked=1"
+    },
+    {
+      "source": "/ranked/catalog/:type/:id/:extra*",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&extra=:extra*&ranked=1"
+    },
+    {
+      "source": "/extended/ranked/manifest.json",
+      "destination": "/api/resolver-manifest?extended=1&ranked=1"
+    },
+    {
+      "source": "/extended/ranked/catalog/:type/:id.json",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&extended=1&ranked=1"
+    },
+    {
+      "source": "/extended/ranked/catalog/:type/:id/:extra*",
+      "destination": "/api/catalog-source?resource=catalog&type=:type&id=:id&extra=:extra*&extended=1&ranked=1"
+    },
+    {
       "source": "/romaji/extended/manifest.json",
       "destination": "/api/resolver-manifest?extended=1&titleMode=romaji"
     },

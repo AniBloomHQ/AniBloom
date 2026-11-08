@@ -19,10 +19,13 @@ export default function handler(req, res) {
   const extended = req.query?.extended === "1"
     || url.searchParams.get("extended") === "1"
     || url.pathname.split("/").includes("extended");
-  return res.json(buildManifest(current, preference, { includeExtended: extended }));
+  const ranked = req.query?.ranked === "1"
+    || url.searchParams.get("ranked") === "1"
+    || url.pathname.split("/").includes("ranked");
+  return res.json(buildManifest(current, preference, { includeExtended: extended, includeTop: ranked }));
 }
 
-export function buildManifest(info, titlePreference = "english", { includeExtended = false } = {}) {
+export function buildManifest(info, titlePreference = "english", { includeExtended = false, includeTop = false } = {}) {
   return {
     id: "com.marki.nuvio.anime-releases",
     version: ADDON_VERSION,
@@ -33,7 +36,7 @@ export function buildManifest(info, titlePreference = "english", { includeExtend
       { name: "catalog", types: ["series", "movie"] },
     ],
     types: ["series", "movie"],
-    catalogs: catalogDefinitions(info, normalizeTitlePreference(titlePreference), { includeExtended }),
+    catalogs: catalogDefinitions(info, normalizeTitlePreference(titlePreference), { includeExtended, includeTop }),
     identityMode: "provider"
   };
 }
