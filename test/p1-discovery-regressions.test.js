@@ -75,11 +75,11 @@ test("search handles punctuation, accents, non-Latin titles and AniList synonyms
 });
 
 test("upcoming day and 7-day windows preserve strict boundaries and rolling freshness", () => {
-  const now = new Date("2026-11-08T15:00:00.000Z"); // 23:00 Asia/Manila
+  const now = new Date("2026-11-08T14:00:00.000Z"); // 23:00 Asia/Tokyo
   const today = getRollingCatalogRange("airing_today", now);
   assert.deepEqual(today, {
     start: now.getTime(),
-    end: Date.parse("2026-11-08T16:00:00.000Z"),
+    end: Date.parse("2026-11-08T15:00:00.000Z"),
   });
   const week = getRollingCatalogRange("upcoming_7_days", now);
   assert.deepEqual(week, { start: now.getTime(), end: now.getTime() + 7 * 24 * 60 * 60 * 1000 });

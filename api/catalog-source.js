@@ -4,10 +4,10 @@ import {
   NUVIO_PAGE_SIZE,
   buildCatalogMediaVariables,
   catalogDefinitions as getCatalogDefinitions,
-  getNext3DaysRangeManila,
-  getNext7DaysRangeManila,
-  getAiringTodayRangeManila,
-  getPrevious3DaysRangeManila,
+  getNext3DaysRange,
+  getNext7DaysRange,
+  getAiringTodayRangeJapan,
+  getPrevious3DaysRange,
   getSeasonInfo as getSeasonInfoValue,
   parseCatalogExtraPath,
 } from "../lib/catalog-config.js";
@@ -52,10 +52,10 @@ export {
   ANILIST_PAGE_SIZE,
   NUVIO_PAGE_SIZE,
   buildCatalogMediaVariables,
-  getNext3DaysRangeManila,
-  getNext7DaysRangeManila,
-  getAiringTodayRangeManila,
-  getPrevious3DaysRangeManila,
+  getNext3DaysRange,
+  getNext7DaysRange,
+  getAiringTodayRangeJapan,
+  getPrevious3DaysRange,
   parseCatalogExtraPath,
   filterCatalogMetasBySearch,
   toMetaFromAniList,
@@ -1810,10 +1810,10 @@ export async function fetchValidatedSeasonCatalogPage({
 }
 
 export function getRollingCatalogRange(id, date) {
-  if (id === "upcoming_3_days") return getNext3DaysRangeManila(date);
-  if (id === "previous_3_days") return getPrevious3DaysRangeManila(date);
-  if (id === "airing_today") return getAiringTodayRangeManila(date);
-  if (id === "upcoming_7_days") return getNext7DaysRangeManila(date);
+  if (id === "upcoming_3_days") return getNext3DaysRange(date);
+  if (id === "previous_3_days") return getPrevious3DaysRange(date);
+  if (id === "airing_today") return getAiringTodayRangeJapan(date);
+  if (id === "upcoming_7_days") return getNext7DaysRange(date);
   return null;
 }
 
