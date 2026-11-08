@@ -20,7 +20,7 @@ const seasons = {
 test("seasonal catalogs support bounded optional genre extras without changing rolling contracts", () => {
   const catalogs = catalogDefinitions(seasons);
   const seasonals = catalogs.filter(c => c.id.includes("season"));
-  assert.equal(seasonals.length, 6);
+  assert.equal(seasonals.length, 7);
   for (const catalog of seasonals) {
     const genre = catalog.extra.find(e => e.name === "genre");
     assert.ok(genre, catalog.id);
@@ -121,7 +121,7 @@ test("identity fallback never fabricates a provider ID and keeps distinct AniLis
   assert.equal(toCatalogIdentity({ extra: { malId: -1, anilistId: -1 } }), null);
 });
 
-test("local server routes extended English/Romaji/Native manifests without changing standard installs", async () => {
+test("local server retains extended English/Romaji/Native manifest aliases with the full catalog set", async () => {
   const { createPreviewServer } = await import("../scripts/dev-server.js");
   const server = createPreviewServer();
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
@@ -132,9 +132,8 @@ test("local server routes extended English/Romaji/Native manifests without chang
       const extendedResponse = await fetch(origin + prefix + "/extended/manifest.json");
       assert.equal(extendedResponse.status, 200);
       const extended = await extendedResponse.json();
-      assert.equal(standard.catalogs.length, 8);
-      assert.equal(extended.catalogs.length, 10);
-      assert.deepEqual(extended.catalogs.slice(0, 8).map(x => x.id), standard.catalogs.map(x => x.id));
+      assert.equal(standard.catalogs.length, 11);
+      assert.deepEqual(extended.catalogs, standard.catalogs);
     }
     const bad = await fetch(origin + "/extended/catalog/series/upcoming_7_days.json?skip=1001");
     assert.equal(bad.status, 400);

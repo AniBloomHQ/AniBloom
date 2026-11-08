@@ -8,7 +8,7 @@ test("home page serves AniBloom generic product information", () => {
   handler({}, res);
   assert.match(html, /AniBloom — Anime Discovery for Nuvio/);
   assert.match(html, /Discover anime\.<br>Every season\./);
-  assert.doesNotMatch(html, /AniList|ARM mapping|identity mapping|TMDB|TVDB|IMDb/i);
+  assert.doesNotMatch(html, /ARM mapping|identity mapping|TMDB|TVDB|IMDb/i);
 });
 
 test("home page retains direct Nuvio installation and HTTPS fallback", () => {

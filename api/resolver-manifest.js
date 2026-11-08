@@ -16,16 +16,12 @@ export default function handler(req, res) {
   const preference = normalizeTitlePreference(
     req.query?.titleMode || url.searchParams.get("titleMode") || url.pathname.split("/")[1],
   );
-  const extended = req.query?.extended === "1"
-    || url.searchParams.get("extended") === "1"
-    || url.pathname.split("/").includes("extended");
-  const ranked = req.query?.ranked === "1"
-    || url.searchParams.get("ranked") === "1"
-    || url.pathname.split("/").includes("ranked");
-  return res.json(buildManifest(current, preference, { includeExtended: extended, includeTop: ranked }));
+  // Legacy extended/ranked paths are kept as aliases. Every manifest variant now
+  // advertises the complete supported catalog list; Nuvio handles row visibility.
+  return res.json(buildManifest(current, preference));
 }
 
-export function buildManifest(info, titlePreference = "english", { includeExtended = false, includeTop = false } = {}) {
+export function buildManifest(info, titlePreference = "english") {
   return {
     id: "com.marki.nuvio.anime-releases",
     version: ADDON_VERSION,
@@ -36,7 +32,7 @@ export function buildManifest(info, titlePreference = "english", { includeExtend
       { name: "catalog", types: ["series", "movie"] },
     ],
     types: ["series", "movie"],
-    catalogs: catalogDefinitions(info, normalizeTitlePreference(titlePreference), { includeExtended, includeTop }),
+    catalogs: catalogDefinitions(info, normalizeTitlePreference(titlePreference)),
     identityMode: "provider"
   };
 }
