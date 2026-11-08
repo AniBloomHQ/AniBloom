@@ -34,10 +34,11 @@ test("stylesheet keeps monochrome palette, responsive layout and accessibility",
 test("all eight standard catalogs render in one uncategorized grid with original endpoints", () => {
   const html = render();
   const labels = [...html.matchAll(/<strong>([^<]+)<\/strong>/g)].map(([, label]) => label);
-  assert.deepEqual(labels, [
+  assert.deepEqual(labels.slice(0, 8), [
     "Upcoming 3 days", "Previous 3 days", "Current Season", "Current Season Movies",
     "Previous Season", "Previous Season Movies", "Upcoming Season", "Upcoming Season Movies",
   ]);
+  assert.deepEqual(labels.slice(8), ["Airing Today", "Upcoming — 7 days"]);
   const ids = ["upcoming_3_days", "current_season", "previous_season", "upcoming_season", "previous_3_days", "current_season_movies", "previous_season_movies", "upcoming_season_movies"];
   for (const id of ids) assert.ok(html.includes("/" + id + ".json"), id);
   assert.equal((html.match(/class="catalog-card"/g) || []).length, 8);

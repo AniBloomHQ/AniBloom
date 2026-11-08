@@ -71,7 +71,7 @@ test("optional catalog cards retain responsive grid layout and accessible icon/s
   const html = renderHomepage();
   assert.match(css, /\.optional-catalogs\{/);
   assert.match(css, /\.optional-catalogs h3\{/);
-  assert.match(css, /@media\(max-width:700px\)[^}]*\.catalog-grid\{grid-template-columns:1fr/);
+  assert.match(css, /@media\(max-width:700px\)[\s\S]*?\.catalog-grid\{grid-template-columns:1fr/);
   assert.match(html, /aria-labelledby="optional-catalogs-heading"/);
   assert.match(html, /aria-label="Open Airing Today catalog"/);
   assert.match(html, /aria-label="Open Upcoming — 7 days catalog"/);
