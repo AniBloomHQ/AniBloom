@@ -107,7 +107,7 @@ test("invalid and credential-bearing PostersPlus endpoints safely fall back to A
   for (const base of [
     "", "http://posters.example.com", "https://user:pass@posters.example.com",
     "https://posters.example.com/?access_key=fake", "https://posters.example.com/path",
-    "https://localhost", "https://127.0.0.1", "https://posters.example.com#frag",
+    "https://localhost", "https://127.0.0.1", "https://192.168.1.24", "https://posters.example.com#frag",
   ]) {
     assert.deepEqual(projectCatalogPosters(metas, "postersplus", { postersPlusBaseUrl: base }), metas, base);
   }

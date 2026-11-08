@@ -48,16 +48,11 @@ The six seasonal series/movie catalogs advertise a fixed selection of optional g
 
 ### P2 discovery and artwork options (development, not yet deployed)
 
-The **Top Anime of the Season** catalog ranks eligible current-season TV/ONA/OVA/SPECIAL anime using AniList's upstream popularity ranking (with score and stable ID as tie breakers). It is **not** added to existing standard or extended manifests. Enable **Top Season** on the homepage or install the fixed `/ranked/manifest.json` variant; `/extended/ranked/manifest.json` combines ranked and extended. Romaji/Native equivalents are available using the existing `/romaji` or `/native` prefixes. The new ranking has its own response key and one bounded AniList page per season-catalog request.
+The **Top Anime of the Season** catalog is an optional popularity-ranked view. Existing standard and extended catalogs stay unchanged. Use **Top Season** on the homepage or add `/ranked` immediately before `/manifest.json` to the chosen manifest URL; for example `/romaji/extended/ranked/manifest.json` includes both optional additions.
 
-All catalog manifests advertise an optional **Artwork** filter:
-- **AniList** (default) — original highest-available AniList `extraLarge → large → medium` cover.
-- **BetterPosters** — direct documented `https://btttr.cc/poster/imdb/poster-default/{imdb_id}.jpg` only for an independently resolved IMDb catalog ID. Others retain AniList artwork.
-- **PostersPlus** — direct `/poster?anilist_id=...&type=...` URL only when the deployment operator configures a trusted public HTTPS `POSTERSPLUS_PUBLIC_BASE_URL` and a positive AniList ID exists. The variable is a *public base hostname only*, never a credential or authenticated URL. Without it, choose AniList.
+Catalogs also support an optional **Artwork** filter: **AniList** (default), **BetterPosters**, or **PostersPlus**. Alternative artwork comes directly from the selected external poster provider when compatible; otherwise AniBloom keeps its existing cover. Some Nuvio clients may not expose optional catalog extras. A separately configured public PostersPlus service is required; none is configured by default. These are catalog-preview posters, not detail-page artwork replacements.
 
-Selecting an artwork source in a compatible client's catalog filter is opt-in; direct catalog URLs can use `artwork=BetterPosters` or `artwork=PostersPlus`. Not every Nuvio client build exposes optional catalog extras. External image availability, rate limits and cache behavior are controlled by those providers, **not AniBloom**. On missing identity/configuration AniList covers remain; if an external image URL later responds with an error, the client must handle its own image fallback. AniBloom does not fetch/proxy/re-encode provider images, change metadata-provider artwork, or consume extra upstream requests for poster preferences.
-
-More details: [P2 implementation and cost review](docs/p2-enhancements.md).
+Alternative artwork does not create extra AniBloom image requests or change shared catalog data. Live Nuvio compatibility, image availability and production resource impact remain unverified until the Vercel quota issue is resolved. [See setup details and limitations](docs/p2-enhancements.md).
 
 ## Installation
 
