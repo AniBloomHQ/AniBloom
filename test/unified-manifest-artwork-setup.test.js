@@ -141,7 +141,7 @@ test("artwork manifest routes project posters from the same existing cached iden
 
 test("homepage shows the 11 catalogs and standard install URLs with automatic BetterPosters", () => {
   const html = homepage();
-  const names = [...html.matchAll(/<strong>([^<]+)<\\/strong>/g)].map(x=>x[1]);
+  const names = [...html.matchAll(new RegExp("<strong>([^<]+)</strong>", "g"))].map(x => x[1]);
   assert.deepEqual(names, [
     "Upcoming 3 days", "Previous 3 days", "Current Season", "Current Season Movies",
     "Previous Season", "Previous Season Movies", "Upcoming Season", "Upcoming Season Movies",
@@ -153,6 +153,6 @@ test("homepage shows the 11 catalogs and standard install URLs with automatic Be
   assert.match(html, /extra requests/i);
   assert.doesNotMatch(html, /id="artwork-provider"/);
   assert.doesNotMatch(html, /PostersPlus/);
-  assert.match(html, /const url=origin\\+prefix\\+"\\/manifest.json"/);
+  assert.ok(html.includes('const url=origin+prefix+"/manifest.json"'));
   assert.doesNotMatch(html, /access_key=|api_key=|secret=/i);
 });

@@ -51,11 +51,11 @@ The six seasonal series/movie catalogs advertise a fixed selection of optional g
 
 ### BetterPosters catalog artwork (automatic; pending deployment)
 
-**BetterPosters is the default** for catalog titles with a resolved IMDb ID; no setup, account, password, extra addon, or artwork dropdown is needed. The ordinary `/manifest.json` installation and its Romaji/Native language variants use this behavior:
+**BetterPosters is the default** for catalog titles with a resolved compatible poster ID; no setup, account, password, extra addon, or artwork dropdown is needed. The ordinary `/manifest.json` installation and its Romaji/Native language variants use this behavior:
 
 - **English** (`/manifest.json`) and **Romaji** (`/romaji/manifest.json`) request English poster text.
 - **Native** (`/native/manifest.json`) requests Japanese poster text (`lang=ja`). Native catalog titles can be in their original writing system; the poster language is deliberately Japanese.
-- Titles without a compatible IMDb ID keep their original high-resolution AniList cover. Catalog artwork is separate from metadata-provider details. If a BetterPosters image URL fails later, recovery depends on the Nuvio client; AniBloom cannot verify the remote image without extra server traffic.
+- Titles without a compatible poster ID keep their original high-resolution AniList cover. Catalog artwork is separate from metadata-provider details. If a BetterPosters image URL fails later, recovery depends on the Nuvio client; AniBloom cannot verify the remote image without extra server traffic.
 
 The visual options follow the BetterPosters defaults: trend tags **on**, genre **on**, rating **on** (average source), quality tags **off**, and age-rating tags **off**. More URL variants are supported internally but not exposed as public install configuration. Images are fetched directly by Nuvio, without a Vercel image proxy or new server-side API calls.
 
@@ -74,9 +74,9 @@ For manual installation, use the same manifest URL.
 
 ### Anime title preferences and existing installations
 
-English titles fall back to Romaji, then Native; Romaji titles fall back to English, then Native; Native titles fall back to Romaji, then English. Native means the original writing system (not always Japanese). Title preference and artwork source are fixed, stateless URL variants; no accounts or user tokens are created.
+English titles fall back to Romaji, then Native; Romaji titles fall back to English, then Native; Native titles fall back to Romaji, then English. Native means the original writing system (not always Japanese). Title preference is selected through fixed, stateless URL variants; BetterPosters artwork is automatic without accounts or user tokens.
 
-Every variant uses the same 11 catalog IDs, types, page size and optional filters. Already-installed legacy `/extended`, `/ranked`, and `/extended/ranked` URLs continue resolving with all 11 catalog entries; new installations should use the simpler default or artwork-specific URL. When switching an existing installation, remove the old variant if Nuvio would otherwise display duplicate catalog rows. A new source version alone does not update the *deployed* manifest; Nuvio may also cache a previously installed manifest. Nuvio's metadata providers can override displayed titles or posters on detail pages.
+Every variant uses the same 11 catalog IDs, types, page size and optional filters. Already-installed legacy `/extended`, `/ranked`, and `/extended/ranked` URLs continue resolving with all 11 catalog entries; new installations should use the standard manifest URL. When switching an existing installation, remove the old variant if Nuvio would otherwise display duplicate catalog rows. A new source version alone does not update the *deployed* manifest; Nuvio may also cache a previously installed manifest. Nuvio's metadata providers can override displayed titles or posters on detail pages.
 
 ## Self-hosting
 
