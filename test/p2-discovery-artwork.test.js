@@ -148,3 +148,47 @@ test("ranked manifests and catalog extras have explicit local and Vercel routing
     await new Promise((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
   }
 });
+
+test("cached catalogs reuse one normalized response across poster selections and title variants", async () => {
+  const { default: handler, getSeasonInfo } = await import("../api/catalog-source.js");
+  const { setCatalogRuntimeCacheForTests } = await import("../lib/catalog-runtime-cache.js");
+  const { setCatalogRequestRateLimiterForTests } = await import("../lib/catalog-request-rate-limiter.js");
+  const info = getSeasonInfo(new Date());
+  const cacheKey = catalogResponseCacheKey({ id: "current_season", seasonInfo: info, skip: 0, search: "" });
+  const cached = [{
+    id: "tt1234567", type: "series", name: "Default", poster: "https://s4.anilist.co/cover.jpg",
+    extra: { anilistId: 11, titleEnglish: "Default", titleRomaji: "Romaji", titleNative: "日本語" },
+  }];
+  const readKeys = [];
+  setCatalogRuntimeCacheForTests({
+    async get(k) { readKeys.push(k); return k === cacheKey ? { metas: cached, freshUntil: Date.now() + 60000 } : null; },
+    async set() { throw Error("unexpected upstream/cache writes"); },
+  });
+  setCatalogRequestRateLimiterForTests({ async limit() { return { success: true }; } });
+  try {
+    for (const [path, expectedPoster, expectedTitle] of [
+      ["/catalog/series/current_season.json", cached[0].poster, "Default"],
+      ["/catalog/series/current_season.json?artwork=BetterPosters", "https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg", "Default"],
+      ["/romaji/catalog/series/current_season.json?artwork=BetterPosters", "https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg", "Romaji"],
+    ]) {
+      const response = await handler.fetch(new Request("https://example.test" + path));
+      assert.equal(response.status, 200, path);
+      const body = await response.json();
+      assert.equal(body.metas.length, 1);
+      assert.equal(body.metas[0].poster, expectedPoster, path);
+      assert.equal(body.metas[0].name, expectedTitle, path);
+    }
+    assert.deepEqual(readKeys, [cacheKey, cacheKey, cacheKey]);
+    assert.equal(cached[0].poster, "https://s4.anilist.co/cover.jpg");
+  } finally {
+    setCatalogRequestRateLimiterForTests(null);
+    setCatalogRuntimeCacheForTests(null);
+  }
+});
+
+test("Top Season does not become reachable on the ordinary unranked path", async () => {
+  const { default: handler } = await import("../api/catalog-source.js");
+  const response = await handler.fetch(new Request("https://example.test/catalog/series/top_season.json"));
+  assert.equal(response.status, 404);
+  assert.deepEqual(await response.json(), { metas: [] });
+});

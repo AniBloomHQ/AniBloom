@@ -28,10 +28,10 @@ test("seasonal catalogs support bounded optional genre extras without changing r
     assert.ok(genre.options.includes("Action"));
     assert.ok(genre.options.includes("Sci-Fi"));
     assert.equal(new Set(genre.options).size, genre.options.length);
-    assert.deepEqual(catalog.extra.filter(e => e.name !== "genre").map(e => e.name), ["search", "skip"]);
+    assert.deepEqual(catalog.extra.filter(e => e.name !== "genre").map(e => e.name), ["search", "skip", "artwork"]);
   }
   for (const catalog of catalogs.filter(c => !c.id.includes("season"))) {
-    assert.deepEqual(catalog.extra.map(e => e.name), ["search", "skip"]);
+    assert.deepEqual(catalog.extra.map(e => e.name), ["search", "skip", "artwork"]);
   }
 });
 
@@ -90,7 +90,7 @@ test("upcoming day and 7-day windows preserve strict boundaries and rolling fres
   for (const id of ["airing_today", "upcoming_7_days"]) {
     const entry = catalogs.find(c => c.id === id);
     assert.equal(entry?.type, "series");
-    assert.deepEqual(entry.extra.map(e => e.name), ["search", "skip"]);
+    assert.deepEqual(entry.extra.map(e => e.name), ["search", "skip", "artwork"]);
   }
 });
 

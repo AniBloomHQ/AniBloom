@@ -74,7 +74,7 @@ test("catalog definitions preserve the supported catalogs with one consistent Nu
     assert.equal(definition.type, definition.id.endsWith("_movies") ? "movie" : "series");
     assert.equal(definition.pageSize, NUVIO_PAGE_SIZE);
     assert.deepEqual(definition.extra.map(({ name }) => name),
-      definition.id.includes("season") ? ["search", "skip", "genre"] : ["search", "skip"]);
+      definition.id.includes("season") ? ["search", "skip", "artwork", "genre"] : ["search", "skip", "artwork"]);
   }
   assert.equal(ANILIST_PAGE_SIZE, NUVIO_PAGE_SIZE);
 });

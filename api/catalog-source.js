@@ -14,6 +14,7 @@ import {
 import { collectValidatedCatalogPage } from "../lib/catalog-pagination.js";
 import { filterCatalogMetasBySearch, stripCatalogSearchHints, toMetaFromAniList } from "../lib/catalog-meta.js";
 import { normalizeTitlePreference, projectCatalogMetas } from "../lib/title-preference.js";
+import { projectCatalogPosters } from "../lib/catalog-poster-providers.js";
 import { applyKitsuFallback, resolveAniListKitsuMappings } from "../lib/kitsu-fallback.js";
 import { classifyAniListFailure, queryAnime, queryAiringSchedulePage } from "../lib/catalog-anilist.js";
 import { resolveAniListMappings } from "../lib/arm-mapping.js";
@@ -215,7 +216,8 @@ export default {
   const url = new URL(request.url);
   const parts = url.pathname.split("/").filter(Boolean);
   const prefixed = parts[0] === "romaji" || parts[0] === "native";
-  const offset = (prefixed ? 1 : 0) + (parts[prefixed ? 1 : 0] === "extended" ? 1 : 0);
+  let offset = prefixed ? 1 : 0;
+  while (parts[offset] === "extended" || parts[offset] === "ranked") offset++;
   const queryParams = Object.fromEntries(url.searchParams.entries());
   const titlePreference = normalizeTitlePreference(prefixed ? parts[0] : queryParams.titleMode);
   const rawExtraPath = queryParams.extra ?? parts.slice(offset + 3).join("/");
@@ -245,7 +247,9 @@ export default {
 
   if (resource === "catalog" && ["series", "movie", "anime"].includes(String(type || "").toLowerCase())) {
     const requestedType = String(type || "").toLowerCase();
-    const definition = catalogDefinitions(seasonInfo, "english", { includeExtended: true }).find((catalog) => catalog.id === id);
+    const ranked = parts.includes("ranked") || query.ranked === "1";
+    const definition = catalogDefinitions(seasonInfo, "english", { includeExtended: true, includeTop: ranked })
+      .find((catalog) => catalog.id === id);
     if (!definition || (requestedType === "anime" ? definition.type !== "series" : definition.type !== requestedType)) {
       return send({ metas: [] }, 404);
     }
@@ -253,7 +257,8 @@ export default {
     if (!options.ok) {
       return send({ error: options.error, code: options.code }, 400);
     }
-    const { skip, search, genre = "" } = options;
+    const { skip, search, genre = "", artwork = "" } = options;
+    const project = (metas) => projectCatalogPosters(projectCatalogMetas(metas, titlePreference), artwork);
     const permit = await acquireCatalogRequestPermit(request);
     if (!permit.allowed) {
       return send(
@@ -272,12 +277,12 @@ export default {
         const cached = await getCatalogRuntimeCache(cacheKey);
         if (cached && Array.isArray(cached.metas)) {
           if (Number(cached.freshUntil) > Date.now()) {
-            return send({ metas: projectCatalogMetas(cached.metas, titlePreference) }, 200, null, false, id);
+            return send({ metas: project(cached.metas) }, 200, null, false, id);
           }
 
           await scheduleCatalogRefresh(cacheKey, id, seasonInfo, skip, search, genre, cachePolicy);
           return send(
-            { metas: projectCatalogMetas(cached.metas, titlePreference) },
+            { metas: project(cached.metas) },
             200,
             { "X-Nuvio-Catalog-Stale": "1", "Cache-Control": "no-store" },
             false,
@@ -290,7 +295,7 @@ export default {
       const metas = diagnosticsEnabled
         ? await build()
         : await buildCatalogWithRefreshLock(cacheKey, build, cachePolicy);
-      return send({ metas: projectCatalogMetas(metas, titlePreference) }, 200, diagnosticsEnabled ? formatCatalogDiagnostics(performance.now() - diagnosticsStart, coldStart, diagnosticsStages, process.uptime() * 1000) : null, diagnosticsEnabled, id);
+      return send({ metas: project(metas) }, 200, diagnosticsEnabled ? formatCatalogDiagnostics(performance.now() - diagnosticsStart, coldStart, diagnosticsStages, process.uptime() * 1000) : null, diagnosticsEnabled, id);
     } catch (error) {
       console.error("[catalog] request failed", {
         id,
@@ -335,6 +340,9 @@ export function getCatalogFilter(id, info) {
   if (id === "current_season_movies") return { season: info.ongoing, sort: ["ID"], formats: MOVIE_FORMATS };
   if (id === "previous_season_movies") return { season: info.previous, sort: ["ID"], formats: MOVIE_FORMATS };
   if (id === "upcoming_season_movies") return { season: info.upcoming, sort: ["ID"], formats: MOVIE_FORMATS };
+  if (id === "top_season") return {
+    season: info.ongoing, sort: ["POPULARITY_DESC", "SCORE_DESC", "ID"], formats: SERIES_FORMATS,
+  };
   return null;
 }
 export function normalizeSeasonalCatalogMetaTypes(metas) {

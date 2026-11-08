@@ -46,6 +46,19 @@ The six seasonal series/movie catalogs advertise a fixed selection of optional g
 
 **Resource considerations:** Extended feeds are opt-in. The new seven-day feed may consume more AniList schedule pages than the existing three-day feed. Each request remains bounded to eight schedule pages, so a busy week may show an incomplete list. Do not assume this feed is an exhaustive schedule.
 
+### P2 discovery and artwork options (development, not yet deployed)
+
+The **Top Anime of the Season** catalog ranks eligible current-season TV/ONA/OVA/SPECIAL anime using AniList's upstream popularity ranking (with score and stable ID as tie breakers). It is **not** added to existing standard or extended manifests. Enable **Top Season** on the homepage or install the fixed `/ranked/manifest.json` variant; `/extended/ranked/manifest.json` combines ranked and extended. Romaji/Native equivalents are available using the existing `/romaji` or `/native` prefixes. The new ranking has its own response key and one bounded AniList page per season-catalog request.
+
+All catalog manifests advertise an optional **Artwork** filter:
+- **AniList** (default) — original highest-available AniList `extraLarge → large → medium` cover.
+- **BetterPosters** — direct documented `https://btttr.cc/poster/imdb/poster-default/{imdb_id}.jpg` only for an independently resolved IMDb catalog ID. Others retain AniList artwork.
+- **PostersPlus** — direct `/poster?anilist_id=...&type=...` URL only when the deployment operator configures a trusted public HTTPS `POSTERSPLUS_PUBLIC_BASE_URL` and a positive AniList ID exists. The variable is a *public base hostname only*, never a credential or authenticated URL. Without it, choose AniList.
+
+Selecting an artwork source in a compatible client's catalog filter is opt-in; direct catalog URLs can use `artwork=BetterPosters` or `artwork=PostersPlus`. Not every Nuvio client build exposes optional catalog extras. External image availability, rate limits and cache behavior are controlled by those providers, **not AniBloom**. On missing identity/configuration AniList covers remain; if an external image URL later responds with an error, the client must handle its own image fallback. AniBloom does not fetch/proxy/re-encode provider images, change metadata-provider artwork, or consume extra upstream requests for poster preferences.
+
+More details: [P2 implementation and cost review](docs/p2-enhancements.md).
+
 ## Installation
 
 1. Open the AniBloom [homepage](https://anibloom.vercel.app/).
@@ -59,7 +72,7 @@ For manual installation, use the same manifest URL.
 
 ### Anime title preferences
 
-Choose a display style and optionally enable extended airing catalogs on the homepage. All six combinations have fixed, stateless manifest URLs:
+Choose a display style and optionally enable extended airing and Top Season catalogs on the homepage. The existing six standard/extended combinations remain unchanged:
 
 | Preference | Standard (8 catalogs) | Extended (10 catalogs) | Catalog names |
 | --- | --- | --- | --- |
@@ -67,11 +80,11 @@ Choose a display style and optionally enable extended airing catalogs on the hom
 | Romaji | `/romaji/manifest.json` | `/romaji/extended/manifest.json` | English |
 | Native | `/native/manifest.json` | `/native/extended/manifest.json` | Japanese |
 
-All paths above are relative to `https://anibloom.vercel.app`. The homepage updates the installation URL when you enable the extended option.
+All paths above are relative to `https://anibloom.vercel.app`. The homepage updates the installation URL when you enable extended airing and/or Top Season. For ranked variants, add `/ranked` before `/manifest.json`; for example, `/romaji/extended/ranked/manifest.json` exposes all eleven optional catalogs. These variants are fixed public routes, not per-user accounts.
 
 English titles fall back to Romaji, then Native; Romaji titles fall back to English, then Native; Native titles fall back to Romaji, then English. Native means the original writing system (not always Japanese).
 
-All variants retain the same eight standard catalog IDs; extended variants add two fixed airing IDs. Media identities, search, pagination, and upstream processing are shared. No user accounts, unique manifests, or server-side language preferences are created. Nuvio may treat each URL as a separate installation: remove the old variant when switching to avoid duplicates. Nuvio or a separate metadata provider may override titles shown on detail pages; AniBloom controls its catalog responses, not Nuvio's application language.
+All variants retain the same eight standard catalog IDs; extended variants add two fixed airing IDs and ranked variants add one fixed Top Season ID. Media identities, search, pagination, and upstream processing are shared. No user accounts, unique manifests, or server-side language preferences are created. Nuvio may treat each URL as a separate installation: remove the old variant when switching to avoid duplicates. Nuvio or a separate metadata provider may override titles shown on detail pages; AniBloom controls its catalog responses, not Nuvio's application language.
 
 
 ## Self-hosting
