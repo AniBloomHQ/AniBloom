@@ -38,7 +38,7 @@ test("canonical English/Romaji/Native manifests advertise all eleven catalogs wi
       assert.deepEqual(manifest.catalogs.map(c => c.type), ordinary.catalogs.map(c => c.type));
       assert.equal(manifest.catalogs.at(-1).type, "series");
       assert.match(manifest.catalogs.at(-1).name, mode === "native" ? /人気/ : /Top Anime/);
-      for (const catalog of manifest.catalogs) assert.ok(catalog.extra.find(e => e.name === "artwork"));
+      for (const catalog of manifest.catalogs) assert.equal(catalog.extra.some(e => e.name === "artwork"), false);
     }
   }
 });
@@ -115,7 +115,7 @@ test("artwork manifest routes project posters from the same existing cached iden
   process.env.POSTERSPLUS_PUBLIC_BASE_URL="https://posters.example.org";
   try {
     const cases=[
-      ["/catalog/series/current_season.json",meta.poster,"English title"],
+      ["/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","English title"],
       ["/betterposters/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","English title"],
       ["/romaji/betterposters/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","Romaji title"],
       ["/postersplus/catalog/series/current_season.json","https://posters.example.org/poster?anilist_id=11&type=series","English title"],
@@ -139,24 +139,20 @@ test("artwork manifest routes project posters from the same existing cached iden
   }
 });
 
-test("homepage exposes all eleven cards and configures artwork at install time without credential URLs", () => {
-  const html=homepage();
-  const names=[...html.matchAll(/<strong>([^<]+)<\/strong>/g)].map(x=>x[1]);
-  assert.deepEqual(names,[
-    "Upcoming 3 days","Previous 3 days","Current Season","Current Season Movies",
-    "Previous Season","Previous Season Movies","Upcoming Season","Upcoming Season Movies",
-    "Airing Today","Upcoming — 7 days","Top Anime of the Season",
+test("homepage shows the 11 catalogs and standard install URLs with automatic BetterPosters", () => {
+  const html = homepage();
+  const names = [...html.matchAll(new RegExp("<strong>([^<]+)</strong>", "g"))].map(x => x[1]);
+  assert.deepEqual(names, [
+    "Upcoming 3 days", "Previous 3 days", "Current Season", "Current Season Movies",
+    "Previous Season", "Previous Season Movies", "Upcoming Season", "Upcoming Season Movies",
+    "Airing Today", "Upcoming — 7 days", "Top Anime of the Season",
   ]);
-  assert.match(html,/id="artwork-provider"/);
-  assert.match(html,/value="betterposters"/);
-  assert.match(html,/value="postersplus"/);
-  assert.match(html,/per.catalog/i);
-  assert.match(html,/Nuvio/i);
-  assert.match(html,/extra requests/i);
-  assert.doesNotMatch(html,/id="extended-catalogs"/);
-  assert.doesNotMatch(html,/id="ranked-catalogs"/);
-  assert.match(html,/artwork\.value/);
-  assert.match(html,/"\/betterposters"/);
-  assert.match(html,/"\/postersplus"/);
-  assert.doesNotMatch(html,/access_key=|api_key=|secret=/i);
+  assert.match(html, /id="title-preference"/);
+  assert.match(html, /BetterPosters automatically/);
+  assert.match(html, /per-catalog/i);
+  assert.match(html, /extra requests/i);
+  assert.doesNotMatch(html, /id="artwork-provider"/);
+  assert.doesNotMatch(html, /PostersPlus/);
+  assert.ok(html.includes('const url=origin+prefix+"/manifest.json"'));
+  assert.doesNotMatch(html, /access_key=|api_key=|secret=/i);
 });

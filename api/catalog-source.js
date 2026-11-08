@@ -261,7 +261,7 @@ export default {
       return send({ error: options.error, code: options.code }, 400);
     }
     const { skip, search, genre = "", artwork = "" } = options;
-    const project = (metas) => projectCatalogPosters(projectCatalogMetas(metas, titlePreference), artwork);
+    const project = (metas) => projectCatalogPosters(projectCatalogMetas(metas, titlePreference), artwork, { titlePreference });
     const permit = await acquireCatalogRequestPermit(request);
     if (!permit.allowed) {
       return send(

@@ -43,7 +43,7 @@ test("homepage preserves original eight cards while advertising all options and 
   assert.ok(mainGrid);
   assert.equal((mainGrid.match(/class="catalog-card"/g) || []).length, 8);
   assert.equal((html.match(/class="catalog-card catalog-card-optional"/g) || []).length, 3);
-  assert.match(html, /id="artwork-provider"/);
+  assert.doesNotMatch(html, /id="artwork-provider"/);
   assert.doesNotMatch(html, /id="extended-catalogs"/);
   assert.doesNotMatch(html, /id="ranked-catalogs"/);
 });
