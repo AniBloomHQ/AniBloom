@@ -57,17 +57,17 @@ test("Top Season ranks at upstream AniList query level before pagination, using 
   assert.equal(metas.length, 3);
 });
 
-test("optional artwork preference is in the manifest while unfiltered values stay unchanged", () => {
+test("standard manifest keeps only catalog filters while legacy artwork request inputs stay supported", () => {
   const list = catalogDefinitions(seasons);
   for (const catalog of list) {
-    const field = catalog.extra.find(e => e.name === "artwork");
-    assert.ok(field, catalog.id);
-    assert.equal(field.isRequired, false);
-    assert.deepEqual(field.options, ["AniList", "BetterPosters", "PostersPlus"]);
+    assert.equal(catalog.extra.some(e => e.name === "artwork"), false, catalog.id);
   }
   assert.deepEqual(normalizeCatalogRequestOptions({}), { ok: true, skip: 0, search: "" });
   assert.deepEqual(normalizeCatalogRequestOptions({ artwork: "  BetterPosters  " }), {
     ok: true, skip: 0, search: "", artwork: "betterposters",
+  });
+  assert.deepEqual(normalizeCatalogRequestOptions({ artwork: "AniList" }), {
+    ok: true, skip: 0, search: "", artwork: "anilist",
   });
   assert.deepEqual(normalizeCatalogRequestOptions({ artwork: "PostersPlus" }), {
     ok: true, skip: 0, search: "", artwork: "postersplus",
@@ -87,7 +87,7 @@ test("public poster URLs are deterministic and require authoritative provider ID
     { id: "tt1234567-unsafe", type: "series", poster: "https://s4.anilist.co/cover4.jpg", extra: {} },
   ];
   const copy = structuredClone(original);
-  assert.equal(normalizePosterPreference("unknown"), "anilist");
+  assert.equal(normalizePosterPreference("unknown"), "betterposters");
   assert.equal(projectCatalogPosters(original, "anilist"), original);
   const better = projectCatalogPosters(original, "betterposters");
   assert.equal(better[0].poster, "https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg");
@@ -165,9 +165,10 @@ test("cached catalogs reuse one normalized response across poster selections and
   setCatalogRequestRateLimiterForTests({ async limit() { return { success: true }; } });
   try {
     for (const [path, expectedPoster, expectedTitle] of [
-      ["/catalog/series/current_season.json", cached[0].poster, "Default"],
+      ["/catalog/series/current_season.json", "https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg", "Default"],
       ["/catalog/series/current_season.json?artwork=BetterPosters", "https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg", "Default"],
       ["/romaji/catalog/series/current_season.json?artwork=BetterPosters", "https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg", "Romaji"],
+      ["/native/catalog/series/current_season.json", "https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg?lang=ja", "日本語"],
     ]) {
       const response = await handler.fetch(new Request("https://example.test" + path));
       assert.equal(response.status, 200, path);
@@ -176,7 +177,7 @@ test("cached catalogs reuse one normalized response across poster selections and
       assert.equal(body.metas[0].poster, expectedPoster, path);
       assert.equal(body.metas[0].name, expectedTitle, path);
     }
-    assert.deepEqual(readKeys, [cacheKey, cacheKey, cacheKey]);
+    assert.deepEqual(readKeys, [cacheKey, cacheKey, cacheKey, cacheKey]);
     assert.equal(cached[0].poster, "https://s4.anilist.co/cover.jpg");
   } finally {
     setCatalogRequestRateLimiterForTests(null);

@@ -4,7 +4,7 @@ import home from "../api/home-selector.js";
 import catalogSource, { getSeasonInfo } from "../api/catalog-source.js";
 import { catalogDefinitions } from "../lib/catalog-config.js";
 import { normalizeCatalogRequestOptions } from "../lib/catalog-request-guard.js";
-import { normalizePosterPreference, projectCatalogPosters } from "../lib/catalog-poster-providers.js";
+import { buildBetterPostersUrl, normalizePosterPreference, projectCatalogPosters } from "../lib/catalog-poster-providers.js";
 import { catalogResponseCacheKey, setCatalogRuntimeCacheForTests } from "../lib/catalog-runtime-cache.js";
 import { setCatalogRequestRateLimiterForTests } from "../lib/catalog-request-rate-limiter.js";
 
@@ -65,7 +65,7 @@ test("default canonical catalog and language variants use BetterPosters without 
     const paths = [
       ["/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","English"],
       ["/romaji/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","Romaji"],
-      ["/native/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","日本の題名"],
+      ["/native/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg?lang=ja","日本の題名"],
       ["/betterposters/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","English"],
       ["/catalog/series/current_season.json?artwork=AniList","https://s4.anilist.co/cover.jpg","English"],
     ];
@@ -96,4 +96,27 @@ test("homepage offers title styles and automatic BetterPosters without a provide
   assert.match(html,/const url=origin\+prefix\+"\/manifest.json"/);
   assert.equal((html.match(/class="catalog-card"/g)||[]).length,8);
   assert.equal((html.match(/class="catalog-card catalog-card-optional"/g)||[]).length,3);
+});
+
+test("BetterPosters matches documented URL options, language mapping and safe default config", () => {
+  const id = "tt1234567", base = "https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg";
+  assert.equal(buildBetterPostersUrl(id), base, "English default with genre/rating/trend labels");
+  assert.equal(buildBetterPostersUrl(id, { titlePreference: "romaji" }), base, "Romaji uses English poster labels");
+  assert.equal(buildBetterPostersUrl(id, { titlePreference: "native" }), base + "?lang=ja");
+  assert.equal(buildBetterPostersUrl(id, { titlePreference: "native", trendTags: false }), base + "?tag=none&lang=ja");
+  assert.equal(buildBetterPostersUrl(id, { genre: false, rating: true }), base.replace("/poster/", "/poster-r/"));
+  assert.equal(buildBetterPostersUrl(id, { genre: true, rating: false }), base.replace("/poster/", "/poster-g/"));
+  assert.equal(buildBetterPostersUrl(id, { genre: false, rating: false }), base.replace("/poster/", "/poster-n/"));
+  assert.equal(buildBetterPostersUrl(id, { qualityTags: true, ageRating: true }), base.replace("/poster/", "/poster-qa/"));
+  assert.equal(buildBetterPostersUrl(id, { ratingSource: "imdb" }), base + "?rs=IM");
+  assert.equal(buildBetterPostersUrl(id, { titlePreference: "native", ratingSource: "tmdb" }), base + "?lang=ja&rs=TM");
+  assert.equal(buildBetterPostersUrl(id, { rating: false, ratingSource: "imdb" }), base.replace("/poster/", "/poster-g/"));
+  for (const invalid of ["tt1", "mal:123", "tmdb:234", "tt1234567?lang=es", null]) {
+    assert.equal(buildBetterPostersUrl(invalid), null);
+  }
+  const native = projectCatalogPosters(
+    [{id,poster:"https://s4.anilist.co/original.jpg",type:"series"}],
+    undefined, {titlePreference:"native"}
+  );
+  assert.equal(native[0].poster, base + "?lang=ja");
 });

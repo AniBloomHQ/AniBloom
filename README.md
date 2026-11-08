@@ -49,21 +49,17 @@ The six seasonal series/movie catalogs advertise a fixed selection of optional g
 
 **Resource considerations:** The default manifest now advertises all 11 catalogs. A disabled Home row typically avoids its regular Home requests in supported clients, but that behavior is client-specific and does not prevent an initial fetch or usage elsewhere. The seven-day feed remains bounded to eight AniList schedule pages, so busy weeks may be incomplete. The ranked catalog uses one upstream page per request before identity resolution. We have **not measured** the increased live Vercel CPU or AniList request volume for this default change.
 
-### Poster artwork configuration (development, not yet deployed)
+### BetterPosters catalog artwork (automatic; pending deployment)
 
-On the AniBloom homepage, choose an **Anime title preference** and a **Catalog artwork source** before using the install link. Fixed public install URLs work even if your Nuvio client does not show a custom catalog `artwork` filter:
+**BetterPosters is the default** for catalog titles with a resolved IMDb ID; no setup, account, password, extra addon, or artwork dropdown is needed. The ordinary `/manifest.json` installation and its Romaji/Native language variants use this behavior:
 
-| Artwork source | English manifest | Romaji | Native |
-| --- | --- | --- | --- |
-| AniList (default) | `/manifest.json` | `/romaji/manifest.json` | `/native/manifest.json` |
-| BetterPosters | `/betterposters/manifest.json` | `/romaji/betterposters/manifest.json` | `/native/betterposters/manifest.json` |
-| PostersPlus | `/postersplus/manifest.json` | `/romaji/postersplus/manifest.json` | `/native/postersplus/manifest.json` |
+- **English** (`/manifest.json`) and **Romaji** (`/romaji/manifest.json`) request English poster text.
+- **Native** (`/native/manifest.json`) requests Japanese poster text (`lang=ja`). Native catalog titles can be in their original writing system; the poster language is deliberately Japanese.
+- Titles without a compatible IMDb ID keep their original high-resolution AniList cover. Catalog artwork is separate from metadata-provider details. If a BetterPosters image URL fails later, recovery depends on the Nuvio client; AniBloom cannot verify the remote image without extra server traffic.
 
-All paths are relative to `https://anibloom.vercel.app`, and all return the same 11 catalog IDs. **BetterPosters** only applies to titles with a resolved compatible external identifier; others keep their AniList cover. **PostersPlus** requires the addon operator to configure an accessible public HTTPS poster service via the non-secret `POSTERSPLUS_PUBLIC_BASE_URL` environment variable. Without one, it preserves AniList artwork. No private keys, authentication tokens, or personalized poster URLs are supported in this installer.
+The visual options follow the BetterPosters defaults: trend tags **on**, genre **on**, rating **on** (average source), quality tags **off**, and age-rating tags **off**. More URL variants are supported internally but not exposed as public install configuration. Images are fetched directly by Nuvio, without a Vercel image proxy or new server-side API calls.
 
-Where supported, Nuvio's optional per-catalog `artwork` filter can still override the installation-wide choice; other clients can use fixed manifest URLs. These are *catalog preview* posters: separately installed metadata addons may provide different artwork on details, and a broken remote image cannot be automatically replaced after it has been sent to the client.
-
-For a step-by-step operator setup, provider compatibility notes, and fallback/security limitations, see [Art providers and setup](docs/p2-enhancements.md). Official provider references: [BetterPosters Nuvio integration](https://github.com/StrayBer/nuvio-better-posters-addon) and [PostersPlus documentation](https://github.com/UmbraProjects/PostersPlus).
+Existing historical poster-provider manifest paths and explicit catalog artwork parameters remain accepted for old installations, but new installs only need the normal manifests. [BetterPosters behavior and limitations](docs/p2-enhancements.md).
 
 ## Installation
 

@@ -161,11 +161,12 @@ test("About contains only identity details and support, without a duplicate inst
   assert.doesNotMatch(html, /footer[^]*Donate/);
 });
 
-test("homepage offers artwork selection while all eleven catalogs are included", () => {
+test("homepage retains title selection with automatic BetterPosters", () => {
   const html = render();
-  assert.match(html, /id="artwork-provider"/);
+  assert.doesNotMatch(html, /id="artwork-provider"/);
   assert.match(html, /BetterPosters/);
-  assert.match(html, /PostersPlus/);
+  assert.doesNotMatch(html, /PostersPlus/);
+  assert.match(html, /automatically/);
   assert.match(html, /Home catalog customization/);
   assert.doesNotMatch(html, /id="extended-catalogs"/);
   assert.doesNotMatch(html, /id="ranked-catalogs"/);
