@@ -61,8 +61,8 @@ export {
   toMetaFromAniList,
 };
 
-export function catalogDefinitions(info, titlePreference = "english") {
-  return getCatalogDefinitions(info, titlePreference);
+export function catalogDefinitions(info, titlePreference = "english", options = {}) {
+  return getCatalogDefinitions(info, titlePreference, options);
 }
 
 export function toCatalogIdentity(meta) {

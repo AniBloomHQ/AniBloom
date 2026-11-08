@@ -86,7 +86,7 @@ test("upcoming day and 7-day windows preserve strict boundaries and rolling fres
   for (const id of ["airing_today", "upcoming_7_days"]) {
     assert.equal(getCatalogRuntimeCachePolicy(id).freshTtlSeconds, 30);
   }
-  const catalogs = catalogDefinitions(seasons);
+  const catalogs = catalogDefinitions(seasons, "english", { includeExtended: true });
   for (const id of ["airing_today", "upcoming_7_days"]) {
     const entry = catalogs.find(c => c.id === id);
     assert.equal(entry?.type, "series");
