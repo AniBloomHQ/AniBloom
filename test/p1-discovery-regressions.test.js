@@ -153,3 +153,10 @@ test("Vercel routes every extended variant's manifest and catalog extras", async
     }
   }
 });
+
+test("search retains meaningful Japanese voicing marks while folding Latin accents", () => {
+  const voiced = toMetaFromAniList(3, { title: { native: "ブリーチ" } });
+  const unvoiced = toMetaFromAniList(4, { title: { native: "フリーチ" } });
+  assert.deepEqual(filterCatalogMetasBySearch([voiced, unvoiced], "ブリーチ"), [voiced]);
+  assert.equal(filterCatalogMetasBySearch([toMetaFromAniList(5, { title: { english: "Pokémon" } })], "pokemon").length, 1);
+});
