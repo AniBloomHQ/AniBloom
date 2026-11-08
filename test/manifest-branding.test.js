@@ -15,5 +15,5 @@ test("AniBloom manifest exposes the icon and preserves the catalog contract", ()
   assert.deepEqual(manifest.resources, [{ name: "catalog", types: ["series", "movie"] }]);
   assert.deepEqual(manifest.types, ["series", "movie"]);
   assert.equal(manifest.identityMode, "provider");
-  assert.deepEqual(manifest.catalogs.map(function (item) { return item.id; }), ["upcoming_season","current_season","previous_season","upcoming_season_movies","current_season_movies","previous_season_movies","upcoming_3_days","previous_3_days"]);
+  assert.deepEqual(manifest.catalogs.map(function (item) { return item.id; }), ["upcoming_season","current_season","previous_season","upcoming_season_movies","current_season_movies","previous_season_movies","upcoming_3_days","previous_3_days","airing_today","upcoming_7_days"]);
 });

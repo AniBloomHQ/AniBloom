@@ -8,7 +8,9 @@ const CATALOGS = [
   ["Previous Season", "previous_season", "Anime from the recently ended season."],
   ["Previous Season Movies", "previous_season_movies", "Movies from the recently ended season."],
   ["Upcoming Season", "upcoming_season", "Anime from the next upcoming season."],
-  ["Upcoming Season Movies", "upcoming_season_movies", "Movies from the next upcoming season."]
+  ["Upcoming Season Movies", "upcoming_season_movies", "Movies from the next upcoming season."],
+  ["Airing Today", "airing_today", "Episodes scheduled later today (Manila time)."],
+  ["Upcoming 7 days", "upcoming_7_days", "Anime with episodes airing in the next 7 days."]
 ];
 
 const DEFAULT_DONATION_URL = "https://buymeacoffee.com/mark475";
@@ -30,6 +32,8 @@ function getDonationUrl() {
 
 function icon(id) {
   const paths = {
+    airing_today: '<rect x="7" y="10" width="34" height="31" rx="4"/><path d="M15 6v9M33 6v9M8 19h32"/><path d="M24 25v7l5 3"/>',
+    upcoming_7_days: '<rect x="7" y="10" width="34" height="31" rx="4"/><path d="M15 6v9M33 6v9M8 19h32M18 26h12l-8 10"/>',
     upcoming_3_days: '<rect x="7" y="10" width="27" height="29" rx="4"/><path d="M14 6v9M27 6v9M8 19h25"/><circle cx="33" cy="31" r="10" fill="#fce5ef" stroke="currentColor" stroke-width="2.5"/><path d="M33 25v6l4 2"/>',
     current_season: '<circle cx="24" cy="24" r="8"/><path d="M24 5v6M24 37v6M5 24h6M37 24h6M10.6 10.6l4.2 4.2m18.4 18.4 4.2 4.2m0-26.8-4.2 4.2M14.8 33.2l-4.2 4.2"/>',
     previous_season: '<rect x="7" y="9" width="34" height="32" rx="4"/><path d="M15 5v9M33 5v9M8 18h32"/><path d="m17 29 5 5 10-11"/>',
@@ -44,6 +48,8 @@ function icon(id) {
 
 function iconName(id) {
   const names = {
+    airing_today: "calendar-today",
+    upcoming_7_days: "calendar-week",
     upcoming_3_days: "calendar-clock",
     current_season: "sun",
     previous_season: "calendar-check",
@@ -98,7 +104,7 @@ export default function handler(req, res) {
     '<div class="container features"><article class="feature"><span class="feature-icon">' + featureIcon("layers") + '</span><div><h2>Seasonal discovery</h2><p>Browse anime by season, including upcoming, current, and previous releases.</p></div></article>',
     '<article class="feature"><span class="feature-icon" data-icon="radio">' + featureIcon("radio") + '</span><div><h2>Airing now &amp; next</h2><p>Follow what is airing now and what is coming up next.</p></div></article>',
     '<article class="feature"><span class="feature-icon">' + featureIcon("bolt") + '</span><div><h2>One-click installation</h2><p>Add the addon to Nuvio with a single tap or use the manifest URL.</p></div></article></div></section>',
-    '<section class="catalog-section section-reveal" id="catalogs"><div class="container"><div class="section-heading"><h2>Explore catalogs</h2><p>Eight focused catalogs to help you discover and follow anime releases in Nuvio.</p></div>',
+    '<section class="catalog-section section-reveal" id="catalogs"><div class="container"><div class="section-heading"><h2>Explore catalogs</h2><p>Ten focused catalogs to help you discover and follow anime releases in Nuvio.</p></div>',
     '<div class="catalog-grid">' + CATALOGS.map((item) => card(item)).join("") + '</div>',
     '',
     '</div></section><section class="about-section section-reveal" id="about"><div class="container"><div class="about-grid"><div class="about-label"><span class="about-kicker">About AniBloom</span><h2>What AniBloom is</h2></div><div class="about-copy"><p>AniBloom is a catalog-only Nuvio addon for discovering anime. It organizes titles into focused catalogs for upcoming episodes, recently aired episodes, and current, previous, and upcoming seasons—including seasonal movies.</p><p>It helps you find what to watch. Nuvio and your separately installed providers handle the metadata and playback experience.</p></div><div class="about-label about-label-secondary"><h2>What AniBloom is not</h2></div><div class="about-copy"><p>AniBloom is not a streaming service, media host, or metadata provider. It does not host, store, stream, or distribute anime, and it does not provide metadata such as descriptions, artwork, or episode information.</p><p>To see detailed titles and artwork in Nuvio, use a compatible metadata provider alongside AniBloom.</p></div></div><section class="donation-section reveal-on-scroll" id="support" aria-labelledby="support-heading"><div><h2 id="support-heading">Support the addon</h2><p>Your support helps keep AniBloom maintained.</p></div><a class="button donation-button" data-support-button href="' + donate + '" target="_blank" rel="noopener noreferrer">Support development</a></section></div></section></main>',

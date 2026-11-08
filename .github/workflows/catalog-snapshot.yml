@@ -89,6 +89,8 @@ jobs:
               "previous_season_movies",
               "upcoming_3_days",
               "previous_3_days",
+              "airing_today",
+              "upcoming_7_days",
           }
           catalogs = manifest.get("catalogs", [])
           actual = [entry.get("id") for entry in catalogs]

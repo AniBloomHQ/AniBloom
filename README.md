@@ -10,7 +10,7 @@
 
 > Where anime blooms.
 
-**AniBloom is a catalog-only addon for Nuvio.** It helps you discover anime through eight focused catalogs for upcoming episodes, recently aired episodes, and seasonal releases—including movies.
+**AniBloom is a catalog-only addon for Nuvio.** It helps you discover anime through ten focused catalogs for upcoming episodes, recently aired episodes, and seasonal releases—including movies.
 
 [Install AniBloom](https://anibloom.vercel.app/manifest.json) · [Homepage](https://anibloom.vercel.app/) · [Support the addon](https://buymeacoffee.com/mark475) · [Releases](https://github.com/AniBloomHQ/AniBloom/releases)
 
@@ -20,6 +20,8 @@ AniBloom brings these eight catalogs together in one list:
 
 - **Upcoming 3 days** — Anime with new episodes airing in the next 3 days.
 - **Previous 3 days** — Anime that aired in the last 3 days.
+- **Airing Today** — Upcoming episodes through midnight in Manila (UTC+8).
+- **Upcoming 7 days** — Anime with new episodes over the next seven rolling days.
 - **Current Season** — Anime in the current season.
 - **Current Season Movies** — Movies from the current season.
 - **Previous Season** — Anime from the recently ended season.
@@ -32,6 +34,12 @@ AniBloom brings these eight catalogs together in one list:
 AniBloom is not a streaming service, media host, or metadata provider. It does not host, store, stream, or distribute anime. It also does not provide detailed metadata such as descriptions, artwork, or episode information.
 
 Install a separate compatible metadata provider in Nuvio to supply detailed title information and artwork. Examples include **ioametadata**, **Xperience**, and **BingeCat**.
+
+### P1 discovery options
+
+The six seasonal series/movie catalogs advertise a fixed selection of optional genres. When supported by the Nuvio client, selecting a genre filters AniList results before pagination; direct catalog requests can also include `genre=Action`. Unfiltered catalogs behave as before. Title searches support English, Romaji, Native and AniList synonym titles, including common accents and punctuation variations. AniList still controls the upstream search candidate set.
+
+**Resource considerations:** The new seven-day feed may consume more AniList schedule pages than the existing three-day feed. Each request remains bounded to eight schedule pages, so a busy week may show an incomplete list. Client compatibility, cache efficiency and function CPU usage must be verified before production rollout.
 
 ## Installation
 

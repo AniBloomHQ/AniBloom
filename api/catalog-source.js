@@ -5,6 +5,8 @@ import {
   buildCatalogMediaVariables,
   catalogDefinitions as getCatalogDefinitions,
   getNext3DaysRangeManila,
+  getNext7DaysRangeManila,
+  getAiringTodayRangeManila,
   getPrevious3DaysRangeManila,
   getSeasonInfo as getSeasonInfoValue,
   parseCatalogExtraPath,
@@ -51,6 +53,8 @@ export {
   NUVIO_PAGE_SIZE,
   buildCatalogMediaVariables,
   getNext3DaysRangeManila,
+  getNext7DaysRangeManila,
+  getAiringTodayRangeManila,
   getPrevious3DaysRangeManila,
   parseCatalogExtraPath,
   filterCatalogMetasBySearch,
@@ -245,11 +249,11 @@ export default {
     if (!definition || (requestedType === "anime" ? definition.type !== "series" : definition.type !== requestedType)) {
       return send({ metas: [] }, 404);
     }
-    const options = normalizeCatalogRequestOptions(query);
+    const options = normalizeCatalogRequestOptions(query, { allowGenre: Boolean(getCatalogFilter(id, seasonInfo)) });
     if (!options.ok) {
       return send({ error: options.error, code: options.code }, 400);
     }
-    const { skip, search } = options;
+    const { skip, search, genre = "" } = options;
     const permit = await acquireCatalogRequestPermit(request);
     if (!permit.allowed) {
       return send(
@@ -262,7 +266,7 @@ export default {
       );
     }
     const cachePolicy = getCatalogRuntimeCachePolicy(id);
-    const cacheKey = catalogResponseCacheKey({ id, seasonInfo, skip, search });
+    const cacheKey = catalogResponseCacheKey({ id, seasonInfo, skip, search, genre });
     try {
       if (!diagnosticsEnabled) {
         const cached = await getCatalogRuntimeCache(cacheKey);
@@ -271,7 +275,7 @@ export default {
             return send({ metas: projectCatalogMetas(cached.metas, titlePreference) }, 200, null, false, id);
           }
 
-          await scheduleCatalogRefresh(cacheKey, id, seasonInfo, skip, search, cachePolicy);
+          await scheduleCatalogRefresh(cacheKey, id, seasonInfo, skip, search, genre, cachePolicy);
           return send(
             { metas: projectCatalogMetas(cached.metas, titlePreference) },
             200,
@@ -282,7 +286,7 @@ export default {
         }
       }
 
-      const build = () => buildCatalog(id, seasonInfo, skip, search, diagnosticsStages);
+      const build = () => buildCatalog(id, seasonInfo, skip, search, diagnosticsStages, genre);
       const metas = diagnosticsEnabled
         ? await build()
         : await buildCatalogWithRefreshLock(cacheKey, build, cachePolicy);
@@ -1808,6 +1812,8 @@ export async function fetchValidatedSeasonCatalogPage({
 export function getRollingCatalogRange(id, date) {
   if (id === "upcoming_3_days") return getNext3DaysRangeManila(date);
   if (id === "previous_3_days") return getPrevious3DaysRangeManila(date);
+  if (id === "airing_today") return getAiringTodayRangeManila(date);
+  if (id === "upcoming_7_days") return getNext7DaysRangeManila(date);
   return null;
 }
 
@@ -1845,7 +1851,7 @@ export async function buildRollingCatalog(id, date, skip, search, {
       ? resolveAniListCanonicalSeriesByAnimeMapper
       : async () => new Map());
   if (!range) return [];
-  const futureOnly = id === "upcoming_3_days";
+  const futureOnly = id !== "previous_3_days";
   const sort = futureOnly ? "TIME" : "TIME_DESC";
   // Share one TMDB budget across all AniList pages consumed by this rolling request.
   const tmdbResolverBudget = { deadlineAt: null };
@@ -2038,11 +2044,11 @@ export async function buildRollingCatalog(id, date, skip, search, {
   if (diagnostics) diagnostics.rollingReturnedMetas = Array.isArray(result) ? result.length : 0;
   return result;
 }
-export async function buildCatalog(id, info, skip, search, diagnostics = null) {
+export async function buildCatalog(id, info, skip, search, diagnostics = null, genre = "") {
   const filter = getCatalogFilter(id, info);
   if (filter) {
     return fetchValidatedSeasonCatalogPage({
-      filter,
+      filter: genre ? { ...filter, genre } : filter,
       skip,
       search,
       canonicalizePage: (rows, pageDiagnostics) => canonicalizeCatalogPage(rows, { diagnostics: pageDiagnostics, allowProductionIdentityCache: true, enableKitsuFallback: true }),
@@ -2158,13 +2164,13 @@ async function buildCatalogWithRefreshLock(cacheKey, build, cachePolicy) {
 }
 
 export function getCatalogRuntimeCachePolicy(id) {
-  if (id === "upcoming_3_days" || id === "previous_3_days") {
+  if (["upcoming_3_days", "previous_3_days", "airing_today", "upcoming_7_days"].includes(id)) {
     return { freshTtlSeconds: 30, staleTtlSeconds: 300 };
   }
   return { freshTtlSeconds: 3600, staleTtlSeconds: 86400 };
 }
 
-async function scheduleCatalogRefresh(cacheKey, id, seasonInfo, skip, search, cachePolicy) {
+async function scheduleCatalogRefresh(cacheKey, id, seasonInfo, skip, search, genre, cachePolicy) {
   if (catalogRefreshes.has(cacheKey)) return;
 
   const refresh = (async () => {
@@ -2179,7 +2185,7 @@ async function scheduleCatalogRefresh(cacheKey, id, seasonInfo, skip, search, ca
     try {
       const cached = await getCatalogRuntimeCache(cacheKey);
       if (isFreshCatalogCache(cached)) return;
-      const metas = await buildCatalog(id, seasonInfo, skip, search, null);
+      const metas = await buildCatalog(id, seasonInfo, skip, search, null, genre);
       if (lease) {
         const renewed = await lock.renew(CATALOG_REFRESH_LOCK_LEASE_MS);
         if (lease.isLost() || renewed === false || renewed === null) return;
@@ -2203,7 +2209,7 @@ async function scheduleCatalogRefresh(cacheKey, id, seasonInfo, skip, search, ca
 
 export function getCatalogCacheControl(id, diagnosticsEnabled = false, status = 200) {
   if (diagnosticsEnabled || Number(status) >= 400) return "no-store";
-  if (id === "upcoming_3_days" || id === "previous_3_days") {
+  if (["upcoming_3_days", "previous_3_days", "airing_today", "upcoming_7_days"].includes(id)) {
     // Rolling membership changes as airings cross the now boundary. Keep CDN
     // freshness bounded and do not permit a long stale fallback for these feeds.
     return "public, s-maxage=30, stale-while-revalidate=30";

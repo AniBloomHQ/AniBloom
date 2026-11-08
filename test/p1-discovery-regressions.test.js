@@ -7,6 +7,8 @@ import {
 import { catalogResponseCacheKey } from "../lib/catalog-runtime-cache.js";
 import { normalizeCatalogRequestOptions } from "../lib/catalog-request-guard.js";
 import { toMetaFromAniList, filterCatalogMetasBySearch } from "../lib/catalog-meta.js";
+import { getProviderCandidates } from "../lib/provider-identity.js";
+import { toCatalogIdentity } from "../api/catalog-source.js";
 import { filterAiringRowsBySearch, getRollingCatalogRange, getCatalogRuntimeCachePolicy } from "../api/catalog-source.js";
 
 const seasons = {
@@ -90,4 +92,31 @@ test("upcoming day and 7-day windows preserve strict boundaries and rolling fres
     assert.equal(entry?.type, "series");
     assert.deepEqual(entry.extra.map(e => e.name), ["search", "skip"]);
   }
+});
+
+test("identity candidates never reuse a TMDB television ID for a movie (or vice versa)", () => {
+  const mapping = [{
+    source: "anime-mapper",
+    anilistId: 900,
+    title: "Shared Franchise",
+    titles: ["Shared Franchise"],
+    year: 2026,
+    imdbIds: [],
+    tmdbTvId: 1212,
+    tmdbMovieIds: [3434],
+    tvdbId: null,
+  }];
+  const media = { title: { english: "Shared Franchise" }, startDate: { year: 2026 } };
+  const movie = getProviderCandidates({ ...media, format: "MOVIE" }, mapping)
+    .filter(candidate => candidate.provider === "tmdb");
+  const series = getProviderCandidates({ ...media, format: "TV" }, mapping)
+    .filter(candidate => candidate.provider === "tmdb");
+  assert.deepEqual(movie.map(candidate => candidate.id), ["3434"]);
+  assert.deepEqual(series.map(candidate => candidate.id), ["1212"]);
+});
+
+test("identity fallback never fabricates a provider ID and keeps distinct AniList and MAL identities", () => {
+  assert.equal(toCatalogIdentity({ extra: { anilistId: 900 } }).id, "anilist:900");
+  assert.equal(toCatalogIdentity({ extra: { malId: 901, anilistId: 900 } }).id, "mal:901");
+  assert.equal(toCatalogIdentity({ extra: { malId: -1, anilistId: -1 } }), null);
 });

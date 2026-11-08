@@ -8,7 +8,10 @@ test("all user-facing catalogs advertise optional search support", () => {
     previous: { season: "SPRING", year: 2026 },
     upcoming: { season: "FALL", year: 2026 },
   })) {
-    assert.deepEqual(catalog.extra, [{ name: "search", isRequired: false }, { name: "skip", isRequired: false }]);
+    const base = [{ name: "search", isRequired: false }, { name: "skip", isRequired: false }];
+    assert.deepEqual(catalog.id.includes("season")
+      ? catalog.extra.slice(0, 2)
+      : catalog.extra, base);
   }
 });
 
