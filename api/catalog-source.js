@@ -12,7 +12,7 @@ import {
   parseCatalogExtraPath,
 } from "../lib/catalog-config.js";
 import { collectValidatedCatalogPage } from "../lib/catalog-pagination.js";
-import { filterCatalogMetasBySearch, toMetaFromAniList } from "../lib/catalog-meta.js";
+import { filterCatalogMetasBySearch, stripCatalogSearchHints, toMetaFromAniList } from "../lib/catalog-meta.js";
 import { normalizeTitlePreference, projectCatalogMetas } from "../lib/title-preference.js";
 import { applyKitsuFallback, resolveAniListKitsuMappings } from "../lib/kitsu-fallback.js";
 import { classifyAniListFailure, queryAnime, queryAiringSchedulePage } from "../lib/catalog-anilist.js";
@@ -2047,16 +2047,18 @@ export async function buildRollingCatalog(id, date, skip, search, {
 export async function buildCatalog(id, info, skip, search, diagnostics = null, genre = "") {
   const filter = getCatalogFilter(id, info);
   if (filter) {
-    return fetchValidatedSeasonCatalogPage({
+    const result = await fetchValidatedSeasonCatalogPage({
       filter: genre ? { ...filter, genre } : filter,
       skip,
       search,
       canonicalizePage: (rows, pageDiagnostics) => canonicalizeCatalogPage(rows, { diagnostics: pageDiagnostics, allowProductionIdentityCache: true, enableKitsuFallback: true }),
       diagnostics,
     });
+    return stripCatalogSearchHints(result);
   }
   if (getRollingCatalogRange(id, new Date())) {
-    return buildRollingCatalog(id, new Date(), skip, search, { diagnostics, enableKitsuFallback: true });
+    const result = await buildRollingCatalog(id, new Date(), skip, search, { diagnostics, enableKitsuFallback: true });
+    return stripCatalogSearchHints(result);
   }
   return [];
 }

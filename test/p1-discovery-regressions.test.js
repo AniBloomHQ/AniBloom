@@ -6,7 +6,7 @@ import {
 } from "../lib/catalog-config.js";
 import { catalogResponseCacheKey } from "../lib/catalog-runtime-cache.js";
 import { normalizeCatalogRequestOptions } from "../lib/catalog-request-guard.js";
-import { toMetaFromAniList, filterCatalogMetasBySearch } from "../lib/catalog-meta.js";
+import { toMetaFromAniList, filterCatalogMetasBySearch, stripCatalogSearchHints } from "../lib/catalog-meta.js";
 import { getProviderCandidates } from "../lib/provider-identity.js";
 import { toCatalogIdentity } from "../api/catalog-source.js";
 import { filterAiringRowsBySearch, getRollingCatalogRange, getCatalogRuntimeCachePolicy } from "../api/catalog-source.js";
@@ -159,4 +159,14 @@ test("search retains meaningful Japanese voicing marks while folding Latin accen
   const unvoiced = toMetaFromAniList(4, { title: { native: "フリーチ" } });
   assert.deepEqual(filterCatalogMetasBySearch([voiced, unvoiced], "ブリーチ"), [voiced]);
   assert.equal(filterCatalogMetasBySearch([toMetaFromAniList(5, { title: { english: "Pokémon" } })], "pokemon").length, 1);
+});
+
+test("temporary synonym search hints do not increase cached or public catalog metadata", () => {
+  const meta = toMetaFromAniList(100, { title: { english: "Main" }, synonyms: ["Alternative", "Second"] });
+  assert.deepEqual(filterCatalogMetasBySearch([meta], "alternative"), [meta]);
+  const cleaned = stripCatalogSearchHints([meta]);
+  assert.equal(Object.hasOwn(cleaned[0].extra, "titleSynonyms"), false);
+  assert.deepEqual(meta.extra.titleSynonyms, ["Alternative", "Second"], "original identity mapping remains immutable");
+  assert.equal(cleaned[0].name, meta.name);
+  assert.equal(cleaned[0].id, meta.id);
 });
