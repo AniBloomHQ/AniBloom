@@ -16,10 +16,13 @@ export default function handler(req, res) {
   const preference = normalizeTitlePreference(
     req.query?.titleMode || url.searchParams.get("titleMode") || url.pathname.split("/")[1],
   );
-  return res.json(buildManifest(current, preference));
+  const extended = req.query?.extended === "1"
+    || url.searchParams.get("extended") === "1"
+    || url.pathname.split("/").includes("extended");
+  return res.json(buildManifest(current, preference, { includeExtended: extended }));
 }
 
-export function buildManifest(info, titlePreference = "english") {
+export function buildManifest(info, titlePreference = "english", { includeExtended = false } = {}) {
   return {
     id: "com.marki.nuvio.anime-releases",
     version: ADDON_VERSION,
@@ -30,7 +33,7 @@ export function buildManifest(info, titlePreference = "english") {
       { name: "catalog", types: ["series", "movie"] },
     ],
     types: ["series", "movie"],
-    catalogs: catalogDefinitions(info, normalizeTitlePreference(titlePreference)),
+    catalogs: catalogDefinitions(info, normalizeTitlePreference(titlePreference), { includeExtended }),
     identityMode: "provider"
   };
 }

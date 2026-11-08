@@ -215,7 +215,7 @@ export default {
   const url = new URL(request.url);
   const parts = url.pathname.split("/").filter(Boolean);
   const prefixed = parts[0] === "romaji" || parts[0] === "native";
-  const offset = prefixed ? 1 : 0;
+  const offset = (prefixed ? 1 : 0) + (parts[prefixed ? 1 : 0] === "extended" ? 1 : 0);
   const queryParams = Object.fromEntries(url.searchParams.entries());
   const titlePreference = normalizeTitlePreference(prefixed ? parts[0] : queryParams.titleMode);
   const rawExtraPath = queryParams.extra ?? parts.slice(offset + 3).join("/");
@@ -245,7 +245,7 @@ export default {
 
   if (resource === "catalog" && ["series", "movie", "anime"].includes(String(type || "").toLowerCase())) {
     const requestedType = String(type || "").toLowerCase();
-    const definition = catalogDefinitions(seasonInfo).find((catalog) => catalog.id === id);
+    const definition = catalogDefinitions(seasonInfo, "english", { includeExtended: true }).find((catalog) => catalog.id === id);
     if (!definition || (requestedType === "anime" ? definition.type !== "series" : definition.type !== requestedType)) {
       return send({ metas: [] }, 404);
     }

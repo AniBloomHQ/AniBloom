@@ -120,3 +120,36 @@ test("identity fallback never fabricates a provider ID and keeps distinct AniLis
   assert.equal(toCatalogIdentity({ extra: { malId: 901, anilistId: 900 } }).id, "mal:901");
   assert.equal(toCatalogIdentity({ extra: { malId: -1, anilistId: -1 } }), null);
 });
+
+test("local server routes extended English/Romaji/Native manifests without changing standard installs", async () => {
+  const { createPreviewServer } = await import("../scripts/dev-server.js");
+  const server = createPreviewServer();
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const origin = "http://127.0.0.1:" + server.address().port;
+  try {
+    for (const prefix of ["", "/romaji", "/native"]) {
+      const standard = await (await fetch(origin + prefix + "/manifest.json")).json();
+      const extendedResponse = await fetch(origin + prefix + "/extended/manifest.json");
+      assert.equal(extendedResponse.status, 200);
+      const extended = await extendedResponse.json();
+      assert.equal(standard.catalogs.length, 8);
+      assert.equal(extended.catalogs.length, 10);
+      assert.deepEqual(extended.catalogs.slice(0, 8).map(x => x.id), standard.catalogs.map(x => x.id));
+    }
+    const bad = await fetch(origin + "/extended/catalog/series/upcoming_7_days.json?skip=1001");
+    assert.equal(bad.status, 400);
+    assert.equal((await bad.json()).code, "INVALID_SKIP");
+  } finally {
+    await new Promise((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
+  }
+});
+
+test("Vercel routes every extended variant's manifest and catalog extras", async () => {
+  const { readFileSync } = await import("node:fs");
+  const rewrites = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8")).rewrites;
+  for (const prefix of ["/extended", "/romaji/extended", "/native/extended"]) {
+    for (const suffix of ["/manifest.json", "/catalog/:type/:id.json", "/catalog/:type/:id/:extra*"]) {
+      assert.equal(rewrites.filter(route => route.source === prefix + suffix).length, 1, prefix + suffix);
+    }
+  }
+});

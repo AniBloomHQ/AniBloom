@@ -31,17 +31,16 @@ test("stylesheet keeps monochrome palette, responsive layout and accessibility",
   for (const token of ["#090b0d", "#ff79b9", "#f3a6cf", "#b65bea", "prefers-reduced-motion", ":focus-visible", "@media(max-width:700px)"]) assert.ok(css.includes(token), token);
 });
 
-test("all ten catalogs render in one uncategorized grid with original endpoints", () => {
+test("all eight standard catalogs render in one uncategorized grid with original endpoints", () => {
   const html = render();
   const labels = [...html.matchAll(/<strong>([^<]+)<\/strong>/g)].map(([, label]) => label);
   assert.deepEqual(labels, [
     "Upcoming 3 days", "Previous 3 days", "Current Season", "Current Season Movies",
     "Previous Season", "Previous Season Movies", "Upcoming Season", "Upcoming Season Movies",
-    "Airing Today", "Upcoming 7 days",
   ]);
-  const ids = ["upcoming_3_days", "current_season", "previous_season", "upcoming_season", "previous_3_days", "current_season_movies", "previous_season_movies", "upcoming_season_movies", "airing_today", "upcoming_7_days"];
+  const ids = ["upcoming_3_days", "current_season", "previous_season", "upcoming_season", "previous_3_days", "current_season_movies", "previous_season_movies", "upcoming_season_movies"];
   for (const id of ids) assert.ok(html.includes("/" + id + ".json"), id);
-  assert.equal((html.match(/class="catalog-card"/g) || []).length, 10);
+  assert.equal((html.match(/class="catalog-card"/g) || []).length, 8);
   assert.equal((html.match(/class="catalog-grid"/g) || []).length, 1);
   assert.doesNotMatch(html, /catalog-column|Anime series|Recent releases &amp; movies/);
 });
@@ -159,4 +158,12 @@ test("About contains only identity details and support, without a duplicate inst
   assert.doesNotMatch(html, /class="final-cta"|Add AniBloom to Nuvio\./);
   assert.equal((html.match(/class="donation-section(?: reveal-on-scroll)?"/g) || []).length, 1);
   assert.doesNotMatch(html, /footer[^]*Donate/);
+});
+
+test("homepage offers opt-in extended catalogs without enabling them by default", () => {
+  const html = render();
+  assert.match(html, /id="extended-catalogs"/);
+  assert.match(html, /Include optional Airing Today and Upcoming 7 Days/);
+  assert.match(html, /extended\?\.checked/);
+  assert.match(html, /"\/extended"/);
 });
