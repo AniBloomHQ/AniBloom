@@ -118,7 +118,8 @@ test("home page uses only canonical unversioned catalog URLs", async () => {
   assert.doesNotMatch(source, /\/v5\//);
   assert.doesNotMatch(source, /v5 resolver/i);
   assert.match(source, /const type = id\.endsWith\("_movies"\) \? "movie" : "series";/);
-  assert.match(source, /const url = `\$\{BASE_URL\}\/catalog\/\$\{type\}\/\$\{id\}\.json`;/);
+  assert.match(source, /const url = `\$\{BASE_URL\}\$\{routePrefix\}\/catalog\/\$\{type\}\/\$\{id\}\.json`;/);
+  assert.match(source, /routePrefix: "\/extended"/, "optional catalog links must use the fixed extended route prefix");
 });
 
 

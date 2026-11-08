@@ -8,3 +8,4 @@
 .title-preference select{width:100%;min-height:46px;padding:10px 38px 10px 12px;color:#f4f4f6;background:#1b1c20;border:1px solid #5a5a64;border-radius:10px;font:inherit;cursor:pointer}
 .title-preference select:focus-visible{outline:2px solid #ff79b9;outline-offset:2px}
 .title-preference p{margin:0;color:#b9bbc1;font-size:.84rem;line-height:1.5}
+.optional-catalogs{margin-top:30px;padding-top:24px;border-top:1px solid var(--border-light)}.optional-catalogs h3{margin:0;font-size:clamp(1.2rem,2vw,1.45rem);line-height:1.25;letter-spacing:-.035em;font-weight:750}.optional-catalogs p{max-width:760px;margin:7px 0 18px;color:#61656c;font-size:.92rem;line-height:1.55}.optional-catalog-grid .catalog-card-optional{background:linear-gradient(120deg,#fff,#fbf8fc)}@media(max-width:700px){.optional-catalogs{margin-top:26px;padding-top:22px}.optional-catalogs p{margin-bottom:14px}}

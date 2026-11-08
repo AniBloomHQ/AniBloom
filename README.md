@@ -32,7 +32,7 @@ The optional **extended** setup adds two more catalogs (using Japan's broadcast 
 - **Airing Today** — Upcoming episodes through midnight in Japan Standard Time (JST, UTC+9).
 - **Upcoming 7 days** — Anime with new episodes over the next seven rolling days.
 
-To avoid additional requests for existing installations, the standard manifest continues to expose only the original eight catalogs.
+To avoid additional requests for existing installations, the standard manifest continues to expose only the original eight catalogs. The homepage lists **Airing Today** and **Upcoming 7 days** separately under **Optional extended catalogs**, with links to their extended catalog endpoints. These previews do not silently enable the catalogs in the standard manifest; select the extended installation option to include them.
 
 ## What AniBloom is not
 
