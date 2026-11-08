@@ -85,7 +85,16 @@ export function createPreviewServer() {
     }
     if (/^\/(?:(?:romaji|native)\/)?(?:extended\/)?manifest\.json$/.test(url.pathname)) return manifest(req, res);
     if (url.pathname === "/version") return res.json({ version: ADDON_VERSION });
-    if (/^\/(?:(?:romaji|native)\/)?(?:extended\/)?catalog\//.test(url.pathname)) return catalog(req, res);
+    if (/^\/(?:(?:romaji|native)\/)?(?:extended\/)?catalog\//.test(url.pathname)) {
+      const webResponse = await catalog.fetch(new Request(url, {
+        method: request.method,
+        headers: request.headers,
+      }));
+      response.statusCode = webResponse.status;
+      for (const [header, value] of webResponse.headers) response.setHeader(header, value);
+      response.end(await webResponse.text());
+      return;
+    }
     response.statusCode = 404;
     response.end("Not found");
   } catch (error) {
