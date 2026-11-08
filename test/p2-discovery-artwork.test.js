@@ -16,18 +16,18 @@ const seasons = {
   upcoming: { season: "WINTER", year: 2027 },
 };
 
-test("Top Season and extended airing catalogs appear in all manifest variants", () => {
+test("Top Season is included in every nine-catalog manifest variant", () => {
   const defaults = catalogDefinitions(seasons);
   const extended = catalogDefinitions(seasons, "english", { includeExtended: true });
-  assert.equal(defaults.length, 11);
+  assert.equal(defaults.length, 9);
   assert.deepEqual(defaults.map(c => c.id), extended.map(c => c.id));
-  assert.deepEqual(defaults.slice(-3).map(c => c.id), ["airing_today", "upcoming_7_days", "top_season"]);
+  assert.deepEqual(defaults.slice(-1).map(c => c.id), ["top_season"]);
 
   for (const mode of ["english", "romaji", "native"]) {
     const ranked = buildManifest(seasons, mode, { includeTop: true });
     const both = buildManifest(seasons, mode, { includeTop: true, includeExtended: true });
     assert.deepEqual(ranked.catalogs, both.catalogs);
-    assert.equal(ranked.catalogs.length, 11);
+    assert.equal(ranked.catalogs.length, 9);
     assert.equal(ranked.catalogs.at(-1).id, "top_season");
     assert.equal(ranked.catalogs.at(-1).type, "series");
     assert.match(ranked.catalogs.at(-1).name, mode === "native" ? /人気/ : /Top Anime/);
@@ -133,7 +133,7 @@ test("ranked manifests and catalog extras have explicit local and Vercel routing
         const url = origin + prefix + "/manifest.json";
         const response = await fetch(url);
         assert.equal(response.status, 200, url);
-        assert.equal((await response.json()).catalogs.length, 11);
+        assert.equal((await response.json()).catalogs.length, 9);
         for (const shape of ["/manifest.json", "/catalog/:type/:id.json", "/catalog/:type/:id/:extra*"]) {
           assert.equal(routes.filter(r => r.source === prefix + shape).length, 1, prefix + shape);
         }

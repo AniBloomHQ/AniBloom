@@ -15,8 +15,7 @@ const SEASONS = {
 const EXPECTED_IDS = [
   "upcoming_season", "current_season", "previous_season",
   "upcoming_season_movies", "current_season_movies", "previous_season_movies",
-  "upcoming_3_days", "previous_3_days", "airing_today",
-  "upcoming_7_days", "top_season",
+  "upcoming_3_days", "previous_3_days", "top_season",
 ];
 
 function homepage() {
@@ -26,10 +25,10 @@ function homepage() {
   return html;
 }
 
-test("canonical English/Romaji/Native manifests advertise all eleven catalogs without duplicate IDs", () => {
+test("canonical English/Romaji/Native manifests advertise all nine supported catalogs", () => {
   const ordinary = buildManifest(SEASONS);
   assert.deepEqual(ordinary.catalogs.map(c => c.id), EXPECTED_IDS);
-  assert.equal(new Set(ordinary.catalogs.map(c => c.id)).size, 11);
+  assert.equal(new Set(ordinary.catalogs.map(c => c.id)).size, 9);
   for (const mode of ["english", "romaji", "native"]) {
     for (const legacy of [{}, {includeExtended: true}, {includeTop: true},
       {includeExtended: true, includeTop: true}]) {
@@ -139,13 +138,13 @@ test("artwork manifest routes project posters from the same existing cached iden
   }
 });
 
-test("homepage shows the 11 catalogs and standard install URLs with automatic BetterPosters", () => {
+test("homepage shows nine catalogs and standard install URLs with automatic BetterPosters", () => {
   const html = homepage();
   const names = [...html.matchAll(new RegExp("<strong>([^<]+)</strong>", "g"))].map(x => x[1]);
   assert.deepEqual(names, [
     "Upcoming 3 days", "Previous 3 days", "Current Season", "Current Season Movies",
     "Previous Season", "Previous Season Movies", "Upcoming Season", "Upcoming Season Movies",
-    "Airing Today", "Upcoming — 7 days", "Top Anime of the Season",
+    "Top Anime of the Season",
   ]);
   assert.match(html, /id="title-preference"/);
   assert.match(html, /BetterPosters automatically/);

@@ -46,7 +46,7 @@ test("manifest retains catalog identity, order, search and pagination across all
       english.catalogs.map(({id,type,extra,pageSize}) => ({id,type,extra,pageSize})));
   }
   assert.deepEqual(romaji.catalogs.map((c) => c.name), english.catalogs.map((c) => c.name));
-  assert.equal(native.catalogs.length, 11);
+  assert.equal(native.catalogs.length, 9);
   assert.equal(native.catalogs.find((c) => c.id === "current_season").name, "今期のアニメ — 2026年秋");
   assert.equal(native.catalogs.find((c) => c.id === "upcoming_season").name, "来期のアニメ — 2027年冬");
   assert.equal(native.catalogs.find((c) => c.id === "previous_3_days").name, "過去3日間の放送");

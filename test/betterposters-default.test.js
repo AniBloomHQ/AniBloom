@@ -37,9 +37,9 @@ test("BetterPosters is the default projection with safe original-cover fallback"
   assert.equal(metas[0].poster, "https://s4.anilist.co/cover.jpg");
 });
 
-test("default manifest advertises 11 catalogs without an unnecessary artwork provider filter", () => {
+test("default manifest advertises nine catalogs without an unnecessary artwork provider filter", () => {
   const catalogList = catalogDefinitions(SEASONS);
-  assert.equal(catalogList.length, 11);
+  assert.equal(catalogList.length, 9);
   for (const catalog of catalogList) {
     assert.equal(catalog.extra.some(x => x.name === "artwork"), false, catalog.id);
     assert.deepEqual(catalog.extra.slice(0,2).map(x=>x.name), ["search","skip"], catalog.id);
@@ -95,7 +95,7 @@ test("homepage offers title styles and automatic BetterPosters without a provide
   assert.match(html,/nuvio:\/\/anibloom\.vercel\.app\/manifest\.json/);
   assert.match(html,/const url=origin\+prefix\+"\/manifest.json"/);
   assert.equal((html.match(/class="catalog-card"/g)||[]).length,8);
-  assert.equal((html.match(/class="catalog-card catalog-card-optional"/g)||[]).length,3);
+  assert.equal((html.match(/class="catalog-card catalog-card-optional"/g)||[]).length,1);
 });
 
 test("BetterPosters matches documented URL options, language mapping and safe default config", () => {

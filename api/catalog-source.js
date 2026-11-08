@@ -5,8 +5,6 @@ import {
   buildCatalogMediaVariables,
   catalogDefinitions as getCatalogDefinitions,
   getNext3DaysRange,
-  getNext7DaysRange,
-  getAiringTodayRangeJapan,
   getPrevious3DaysRange,
   getSeasonInfo as getSeasonInfoValue,
   parseCatalogExtraPath,
@@ -54,8 +52,6 @@ export {
   NUVIO_PAGE_SIZE,
   buildCatalogMediaVariables,
   getNext3DaysRange,
-  getNext7DaysRange,
-  getAiringTodayRangeJapan,
   getPrevious3DaysRange,
   parseCatalogExtraPath,
   filterCatalogMetasBySearch,
@@ -1823,8 +1819,6 @@ export async function fetchValidatedSeasonCatalogPage({
 export function getRollingCatalogRange(id, date) {
   if (id === "upcoming_3_days") return getNext3DaysRange(date);
   if (id === "previous_3_days") return getPrevious3DaysRange(date);
-  if (id === "airing_today") return getAiringTodayRangeJapan(date);
-  if (id === "upcoming_7_days") return getNext7DaysRange(date);
   return null;
 }
 
@@ -2177,7 +2171,7 @@ async function buildCatalogWithRefreshLock(cacheKey, build, cachePolicy) {
 }
 
 export function getCatalogRuntimeCachePolicy(id) {
-  if (["upcoming_3_days", "previous_3_days", "airing_today", "upcoming_7_days"].includes(id)) {
+  if (["upcoming_3_days", "previous_3_days"].includes(id)) {
     return { freshTtlSeconds: 30, staleTtlSeconds: 300 };
   }
   return { freshTtlSeconds: 3600, staleTtlSeconds: 86400 };
@@ -2222,7 +2216,7 @@ async function scheduleCatalogRefresh(cacheKey, id, seasonInfo, skip, search, ge
 
 export function getCatalogCacheControl(id, diagnosticsEnabled = false, status = 200) {
   if (diagnosticsEnabled || Number(status) >= 400) return "no-store";
-  if (["upcoming_3_days", "previous_3_days", "airing_today", "upcoming_7_days"].includes(id)) {
+  if (["upcoming_3_days", "previous_3_days"].includes(id)) {
     // Rolling membership changes as airings cross the now boundary. Keep CDN
     // freshness bounded and do not permit a long stale fallback for these feeds.
     return "public, s-maxage=30, stale-while-revalidate=30";

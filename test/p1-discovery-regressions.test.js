@@ -74,23 +74,19 @@ test("search handles punctuation, accents, non-Latin titles and AniList synonyms
   assert.equal(filterCatalogMetasBySearch([meta], "totally-unrelated").length, 0);
 });
 
-test("upcoming day and 7-day windows preserve strict boundaries and rolling freshness", () => {
-  const now = new Date("2026-11-08T14:00:00.000Z"); // 23:00 Asia/Tokyo
-  const today = getRollingCatalogRange("airing_today", now);
-  assert.deepEqual(today, {
+test("upcoming and previous 3-day feeds preserve rolling cache policy and schedule boundaries", () => {
+  const now = new Date("2026-11-08T14:00:00.000Z");
+  assert.deepEqual(getRollingCatalogRange("upcoming_3_days", now), {
     start: now.getTime(),
-    end: Date.parse("2026-11-08T15:00:00.000Z"),
+    end: now.getTime() + 3 * 24 * 60 * 60 * 1000,
   });
-  const week = getRollingCatalogRange("upcoming_7_days", now);
-  assert.deepEqual(week, { start: now.getTime(), end: now.getTime() + 7 * 24 * 60 * 60 * 1000 });
-  for (const id of ["airing_today", "upcoming_7_days"]) {
+  assert.deepEqual(getRollingCatalogRange("previous_3_days", now), {
+    start: now.getTime() - 3 * 24 * 60 * 60 * 1000,
+    end: now.getTime(),
+  });
+  for (const id of ["upcoming_3_days", "previous_3_days"]) {
     assert.equal(getCatalogRuntimeCachePolicy(id).freshTtlSeconds, 30);
-  }
-  const catalogs = catalogDefinitions(seasons, "english", { includeExtended: true });
-  for (const id of ["airing_today", "upcoming_7_days"]) {
-    const entry = catalogs.find(c => c.id === id);
-    assert.equal(entry?.type, "series");
-    assert.deepEqual(entry.extra.map(e => e.name), ["search", "skip"]);
+    assert.deepEqual(catalogDefinitions(seasons).find(c => c.id === id)?.extra.map(e => e.name), ["search", "skip"]);
   }
 });
 
@@ -132,12 +128,12 @@ test("local server retains extended English/Romaji/Native manifest aliases with 
       const extendedResponse = await fetch(origin + prefix + "/extended/manifest.json");
       assert.equal(extendedResponse.status, 200);
       const extended = await extendedResponse.json();
-      assert.equal(standard.catalogs.length, 11);
+      assert.equal(standard.catalogs.length, 9);
       assert.deepEqual(extended.catalogs, standard.catalogs);
     }
-    const bad = await fetch(origin + "/extended/catalog/series/upcoming_7_days.json?skip=1001");
-    assert.equal(bad.status, 400);
-    assert.equal((await bad.json()).code, "INVALID_SKIP");
+    const retired = await fetch(origin + "/extended/catalog/series/airing_today.json?skip=1001");
+    assert.equal(retired.status, 404);
+    assert.deepEqual(await retired.json(), { metas: [] });
   } finally {
     await new Promise((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
   }
