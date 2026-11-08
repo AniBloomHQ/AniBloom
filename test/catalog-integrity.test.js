@@ -61,7 +61,7 @@ function assertCatalogMeta(meta) {
   if (/^(tt\d+|tvdb:|tmdb:)/.test(meta.id)) assert.ok(meta.extra.identityProvider);
 }
 
-test("catalog definitions expose exactly the supported five catalogs with one consistent Nuvio contract", () => {
+test("catalog definitions preserve the supported catalogs with one consistent Nuvio contract", () => {
   const definitions = catalogDefinitions(SEASON_INFO);
 
   assert.deepEqual(
@@ -73,7 +73,8 @@ test("catalog definitions expose exactly the supported five catalogs with one co
   for (const definition of definitions) {
     assert.equal(definition.type, definition.id.endsWith("_movies") ? "movie" : "series");
     assert.equal(definition.pageSize, NUVIO_PAGE_SIZE);
-    assert.deepEqual(definition.extra.map(({ name }) => name), ["search", "skip"]);
+    assert.deepEqual(definition.extra.map(({ name }) => name),
+      definition.id.includes("season") ? ["search", "skip", "genre"] : ["search", "skip"]);
   }
   assert.equal(ANILIST_PAGE_SIZE, NUVIO_PAGE_SIZE);
 });

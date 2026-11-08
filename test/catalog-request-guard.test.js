@@ -27,6 +27,16 @@ test("catalog request options cap search input length", () => {
   });
 });
 
+test("handler rejects malformed or unsupported genre filters before touching upstream", async () => {
+  const { default: handler } = await import("../api/catalog-source.js");
+  const invalid = await handler.fetch(new Request("https://example.test/catalog/series/current_season.json?genre=NotReal"));
+  assert.equal(invalid.status, 400);
+  assert.equal((await invalid.json()).code, "INVALID_GENRE");
+  const unsupported = await handler.fetch(new Request("https://example.test/catalog/series/upcoming_3_days.json?genre=Action"));
+  assert.equal(unsupported.status, 400);
+  assert.equal((await unsupported.json()).code, "UNSUPPORTED_GENRE");
+});
+
 test("production diagnostics are disabled while non-production diagnostics remain available", () => {
   assert.equal(isCatalogDiagnosticsEnabled({ diagnostics: "1" }, "production"), false);
   assert.equal(isCatalogDiagnosticsEnabled({ diagnostics: "1" }, "preview"), true);

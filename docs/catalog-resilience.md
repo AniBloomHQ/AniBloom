@@ -21,9 +21,15 @@ The change affects AniBloom's catalog `poster` field only. Nuvio and independent
 
 ### Poster-schema cache isolation (v2.15.0)
 
-Normalized catalog response keys incorporate an explicit `CATALOG_RESPONSE_SCHEMA_VERSION` (currently 2). The v2.14.0 release changed image selection while retaining the legacy normalized-response key, so even a newly deployed function could serve v2.13.0-era medium-poster responses until cache expiry or a successful background refresh. A version-specific key makes those older serialized responses unreachable by new catalog requests, including seasonal first pages, movies, and rolling catalogs. Future changes to serialized catalog metadata must deliberately advance this schema version when old entries are incompatible.
+Normalized catalog response keys incorporate an explicit `CATALOG_RESPONSE_SCHEMA_VERSION` (currently 3; version 2 was introduced in v2.15.0). The v2.14.0 release changed image selection while retaining the legacy normalized-response key, so even a newly deployed function could serve v2.13.0-era medium-poster responses until cache expiry or a successful background refresh. A version-specific key makes those older serialized responses unreachable by new catalog requests, including seasonal first pages, movies, and rolling catalogs. Future changes to serialized catalog metadata must deliberately advance this schema version when old entries are incompatible.
 
 This migration **does not** change the shared Runtime Cache namespace, AniList GraphQL response keys, Redis rate budgets, upstream cooldown or client limiter settings. Catalogs rebuild on first use and then regain the usual freshness/stale fallback; no blanket cache purge or extra AniList fields are required. CDN and client caches remain independent and can temporarily display pre-release posters until their own existing lifetimes expire. Verify an uncached origin request as well as the canonical client URL after deployment; the normalized cache fix does not itself invalidate edge responses.
+
+## P1 discovery changes (pending production release)
+
+Seasonal catalog manifests advertise a bounded optional `genre` filter. AniList applies `genre_in` before upstream pagination and catalog identity resolution; unfiltered GraphQL requests retain their prior query shape and cached keys. Unknown genres are rejected before upstream work, and genre-specific catalog responses use distinct hashed keys. Search matching normalizes Unicode accents, punctuation, and whitespace and considers AniList synonyms. No additional AniList calls per keystroke are introduced.
+
+Additional scheduled feeds reuse the existing rolling identity and pagination pipeline: **Airing Today** (upcoming entries until the next midnight in Asia/Manila) and **Upcoming 7 Days** (rolling 168 hours). These remain subject to the eight-page schedule budget and 30-second catalog freshness policy; large weeks may be incomplete rather than triggering unbounded AniList queries. The default Nuvio manifest retains eight catalogs. The two new feeds are only advertised through dedicated, opt-in extended manifest URLs (English/Romaji/Native). This avoids automatically increasing the upstream request load for current installations; any actual extended-feed traffic still counts toward the shared AniList budget.
 
 ## Request behavior
 
@@ -81,7 +87,7 @@ Counters are aggregate counts only. They do not include AniList IDs, titles, sea
 
 ## Operational validation
 
-A GitHub Actions availability monitor checks the production homepage, manifest contract, and current-season catalog every 30 minutes. It uses no credentials and has no repository write permissions; failed runs provide a basic availability signal, not full traffic-level error-rate or latency observability.
+The old 30-minute production availability monitor was removed on November 5, 2026 to reduce Vercel Function usage. Do not assume scheduled production polling is active. Manual and release-gated smoke tests remain available; traffic-level observability is tracked separately in #511.
 
 After a controlled deployment:
 

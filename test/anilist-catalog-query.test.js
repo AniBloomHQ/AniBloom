@@ -2,6 +2,26 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { queryAnime, queryAiringSchedulePage } from "../lib/catalog-anilist.js";
 
+test("genre-filtered seasonal requests use upstream AniList filtering before pagination", async () => {
+  const previous = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = async (_url, options) => {
+    seen.push(JSON.parse(options.body));
+    return new Response(JSON.stringify({ data: { Page: { media: [] } } }), { status: 200 });
+  };
+  try {
+    await queryAnime({ season: { season: "WINTER", year: 2027 }, sort: ["ID"], genre: "Action" }, 1, "genre-action-regression", { includeMalId: true });
+    assert.equal(seen.length, 1);
+    assert.deepEqual(seen[0].variables.genres, ["Action"]);
+    assert.match(seen[0].query, /genre_in:\$genres/);
+    assert.match(seen[0].query, /\$genres:\[String\]/);
+    assert.match(seen[0].query, /perPage:50/);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+
 test("catalog AniList queries request all seasonal anime formats without a status filter", async () => {
   const originalFetch = globalThis.fetch;
   let request;

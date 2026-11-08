@@ -4,15 +4,14 @@
 
 This runbook covers the public AniBloom website and catalog API.
 
-- The GitHub Actions production availability workflow checks the homepage, manifest contract, and current-season catalog every 30 minutes.
-- That workflow is an availability check, not request-volume monitoring, an error-rate dashboard, a latency-percentile monitor, or a guaranteed paging system. GitHub notification behavior depends on repository and user notification settings.
+- The 30-minute GitHub Actions production availability monitor was removed on November 5, 2026 to conserve Vercel Function resources. No periodic production health polling is currently configured by this repository.
 - Vercel runtime logs and the Upstash console are the primary operational evidence currently available. No dedicated paid monitoring or alerting dependency is configured.
 - Do not infer an outage solely from a single client-side HTTP 429. Distinguish the incoming per-client limiter from AniList's separate upstream request budget.
 
 ## Initial triage
 
 1. Record the UTC time, affected public URL, HTTP status, response body code, Retry-After header if present, and deployment/version.
-2. Check the latest production availability workflow run. Confirm whether the homepage, manifest, and catalog steps failed independently.
+2. Perform low-rate independent checks of the homepage, manifest and a representative catalog; do not assume the removed availability workflow provides a recent result.
 3. Inspect Vercel production runtime logs around the incident. Search for [catalog] request failed, [catalog] background refresh failed, [anilist] upstream request failed, [anilist] upstream response error, and [identity] provider failures.
 4. Check Upstash request/error metrics and database availability. Keep incident notes free of customer identifiers and operational access material.
 5. Compare the affected request with a second catalog endpoint and the homepage/manifest. Avoid load testing production during an incident.
@@ -69,7 +68,7 @@ A stale successful response is an intentional fallback while a background refres
 
 Pause public promotion (do not amplify traffic) when any of the following is observed:
 
-- Two consecutive scheduled production availability checks fail for the same critical endpoint.
+- Two independent low-rate checks confirm a critical endpoint is unavailable, supported by runtime or deployment evidence.
 - Homepage or manifest is unavailable to independent checks.
 - A representative catalog returns sustained 5xx/503 responses for approximately five minutes, confirmed by repeated low-rate checks and runtime evidence.
 - Ordinary low-volume catalog use repeatedly receives RATE_LIMITED, after ruling out one client exhausting its own bucket.
@@ -91,6 +90,6 @@ These are operational decision thresholds, not measured service-level objectives
 ## Related documentation
 
 - [Catalog upstream resilience](./catalog-resilience.md)
-- [Production availability workflow](../.github/workflows/production-health-check.yml)
+- [GitHub Actions (current CI and manual workflows)](../.github/workflows)
 - [Release state](../ops/release-state.json)
 

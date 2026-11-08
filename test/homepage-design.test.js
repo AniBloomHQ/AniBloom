@@ -31,7 +31,7 @@ test("stylesheet keeps monochrome palette, responsive layout and accessibility",
   for (const token of ["#090b0d", "#ff79b9", "#f3a6cf", "#b65bea", "prefers-reduced-motion", ":focus-visible", "@media(max-width:700px)"]) assert.ok(css.includes(token), token);
 });
 
-test("all eight catalogs render in one uncategorized grid with original endpoints", () => {
+test("all eight standard catalogs render in one uncategorized grid with original endpoints", () => {
   const html = render();
   const labels = [...html.matchAll(/<strong>([^<]+)<\/strong>/g)].map(([, label]) => label);
   assert.deepEqual(labels, [
@@ -158,4 +158,12 @@ test("About contains only identity details and support, without a duplicate inst
   assert.doesNotMatch(html, /class="final-cta"|Add AniBloom to Nuvio\./);
   assert.equal((html.match(/class="donation-section(?: reveal-on-scroll)?"/g) || []).length, 1);
   assert.doesNotMatch(html, /footer[^]*Donate/);
+});
+
+test("homepage offers opt-in extended catalogs without enabling them by default", () => {
+  const html = render();
+  assert.match(html, /id="extended-catalogs"/);
+  assert.match(html, /Include optional Airing Today and Upcoming 7 Days/);
+  assert.match(html, /extended\?\.checked/);
+  assert.match(html, /"\/extended"/);
 });

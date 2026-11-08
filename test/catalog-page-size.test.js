@@ -14,6 +14,7 @@ test("catalog pagination uses 50 upstream records and 50 Nuvio records for all c
   });
 
   assert.equal(definitions.length, 8);
+  assert.equal(catalogDefinitions({ ongoing: { season: "FALL", year: 2026 }, previous: { season: "SUMMER", year: 2026 }, upcoming: { season: "WINTER", year: 2027 } }, "english", { includeExtended: true }).length, 10);
   for (const definition of definitions) {
     assert.equal(definition.type, definition.id.endsWith("_movies") ? "movie" : "series");
     assert.equal(definition.pageSize, 50);

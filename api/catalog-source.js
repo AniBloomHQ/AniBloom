@@ -5,12 +5,14 @@ import {
   buildCatalogMediaVariables,
   catalogDefinitions as getCatalogDefinitions,
   getNext3DaysRangeManila,
+  getNext7DaysRangeManila,
+  getAiringTodayRangeManila,
   getPrevious3DaysRangeManila,
   getSeasonInfo as getSeasonInfoValue,
   parseCatalogExtraPath,
 } from "../lib/catalog-config.js";
 import { collectValidatedCatalogPage } from "../lib/catalog-pagination.js";
-import { filterCatalogMetasBySearch, toMetaFromAniList } from "../lib/catalog-meta.js";
+import { filterCatalogMetasBySearch, stripCatalogSearchHints, toMetaFromAniList } from "../lib/catalog-meta.js";
 import { normalizeTitlePreference, projectCatalogMetas } from "../lib/title-preference.js";
 import { applyKitsuFallback, resolveAniListKitsuMappings } from "../lib/kitsu-fallback.js";
 import { classifyAniListFailure, queryAnime, queryAiringSchedulePage } from "../lib/catalog-anilist.js";
@@ -51,14 +53,16 @@ export {
   NUVIO_PAGE_SIZE,
   buildCatalogMediaVariables,
   getNext3DaysRangeManila,
+  getNext7DaysRangeManila,
+  getAiringTodayRangeManila,
   getPrevious3DaysRangeManila,
   parseCatalogExtraPath,
   filterCatalogMetasBySearch,
   toMetaFromAniList,
 };
 
-export function catalogDefinitions(info, titlePreference = "english") {
-  return getCatalogDefinitions(info, titlePreference);
+export function catalogDefinitions(info, titlePreference = "english", options = {}) {
+  return getCatalogDefinitions(info, titlePreference, options);
 }
 
 export function toCatalogIdentity(meta) {
@@ -211,7 +215,7 @@ export default {
   const url = new URL(request.url);
   const parts = url.pathname.split("/").filter(Boolean);
   const prefixed = parts[0] === "romaji" || parts[0] === "native";
-  const offset = prefixed ? 1 : 0;
+  const offset = (prefixed ? 1 : 0) + (parts[prefixed ? 1 : 0] === "extended" ? 1 : 0);
   const queryParams = Object.fromEntries(url.searchParams.entries());
   const titlePreference = normalizeTitlePreference(prefixed ? parts[0] : queryParams.titleMode);
   const rawExtraPath = queryParams.extra ?? parts.slice(offset + 3).join("/");
@@ -241,15 +245,15 @@ export default {
 
   if (resource === "catalog" && ["series", "movie", "anime"].includes(String(type || "").toLowerCase())) {
     const requestedType = String(type || "").toLowerCase();
-    const definition = catalogDefinitions(seasonInfo).find((catalog) => catalog.id === id);
+    const definition = catalogDefinitions(seasonInfo, "english", { includeExtended: true }).find((catalog) => catalog.id === id);
     if (!definition || (requestedType === "anime" ? definition.type !== "series" : definition.type !== requestedType)) {
       return send({ metas: [] }, 404);
     }
-    const options = normalizeCatalogRequestOptions(query);
+    const options = normalizeCatalogRequestOptions(query, { allowGenre: Boolean(getCatalogFilter(id, seasonInfo)) });
     if (!options.ok) {
       return send({ error: options.error, code: options.code }, 400);
     }
-    const { skip, search } = options;
+    const { skip, search, genre = "" } = options;
     const permit = await acquireCatalogRequestPermit(request);
     if (!permit.allowed) {
       return send(
@@ -262,7 +266,7 @@ export default {
       );
     }
     const cachePolicy = getCatalogRuntimeCachePolicy(id);
-    const cacheKey = catalogResponseCacheKey({ id, seasonInfo, skip, search });
+    const cacheKey = catalogResponseCacheKey({ id, seasonInfo, skip, search, genre });
     try {
       if (!diagnosticsEnabled) {
         const cached = await getCatalogRuntimeCache(cacheKey);
@@ -271,7 +275,7 @@ export default {
             return send({ metas: projectCatalogMetas(cached.metas, titlePreference) }, 200, null, false, id);
           }
 
-          await scheduleCatalogRefresh(cacheKey, id, seasonInfo, skip, search, cachePolicy);
+          await scheduleCatalogRefresh(cacheKey, id, seasonInfo, skip, search, genre, cachePolicy);
           return send(
             { metas: projectCatalogMetas(cached.metas, titlePreference) },
             200,
@@ -282,7 +286,7 @@ export default {
         }
       }
 
-      const build = () => buildCatalog(id, seasonInfo, skip, search, diagnosticsStages);
+      const build = () => buildCatalog(id, seasonInfo, skip, search, diagnosticsStages, genre);
       const metas = diagnosticsEnabled
         ? await build()
         : await buildCatalogWithRefreshLock(cacheKey, build, cachePolicy);
@@ -1808,6 +1812,8 @@ export async function fetchValidatedSeasonCatalogPage({
 export function getRollingCatalogRange(id, date) {
   if (id === "upcoming_3_days") return getNext3DaysRangeManila(date);
   if (id === "previous_3_days") return getPrevious3DaysRangeManila(date);
+  if (id === "airing_today") return getAiringTodayRangeManila(date);
+  if (id === "upcoming_7_days") return getNext7DaysRangeManila(date);
   return null;
 }
 
@@ -1845,7 +1851,7 @@ export async function buildRollingCatalog(id, date, skip, search, {
       ? resolveAniListCanonicalSeriesByAnimeMapper
       : async () => new Map());
   if (!range) return [];
-  const futureOnly = id === "upcoming_3_days";
+  const futureOnly = id !== "previous_3_days";
   const sort = futureOnly ? "TIME" : "TIME_DESC";
   // Share one TMDB budget across all AniList pages consumed by this rolling request.
   const tmdbResolverBudget = { deadlineAt: null };
@@ -2038,19 +2044,21 @@ export async function buildRollingCatalog(id, date, skip, search, {
   if (diagnostics) diagnostics.rollingReturnedMetas = Array.isArray(result) ? result.length : 0;
   return result;
 }
-export async function buildCatalog(id, info, skip, search, diagnostics = null) {
+export async function buildCatalog(id, info, skip, search, diagnostics = null, genre = "") {
   const filter = getCatalogFilter(id, info);
   if (filter) {
-    return fetchValidatedSeasonCatalogPage({
-      filter,
+    const result = await fetchValidatedSeasonCatalogPage({
+      filter: genre ? { ...filter, genre } : filter,
       skip,
       search,
       canonicalizePage: (rows, pageDiagnostics) => canonicalizeCatalogPage(rows, { diagnostics: pageDiagnostics, allowProductionIdentityCache: true, enableKitsuFallback: true }),
       diagnostics,
     });
+    return stripCatalogSearchHints(result);
   }
   if (getRollingCatalogRange(id, new Date())) {
-    return buildRollingCatalog(id, new Date(), skip, search, { diagnostics, enableKitsuFallback: true });
+    const result = await buildRollingCatalog(id, new Date(), skip, search, { diagnostics, enableKitsuFallback: true });
+    return stripCatalogSearchHints(result);
   }
   return [];
 }
@@ -2158,13 +2166,13 @@ async function buildCatalogWithRefreshLock(cacheKey, build, cachePolicy) {
 }
 
 export function getCatalogRuntimeCachePolicy(id) {
-  if (id === "upcoming_3_days" || id === "previous_3_days") {
+  if (["upcoming_3_days", "previous_3_days", "airing_today", "upcoming_7_days"].includes(id)) {
     return { freshTtlSeconds: 30, staleTtlSeconds: 300 };
   }
   return { freshTtlSeconds: 3600, staleTtlSeconds: 86400 };
 }
 
-async function scheduleCatalogRefresh(cacheKey, id, seasonInfo, skip, search, cachePolicy) {
+async function scheduleCatalogRefresh(cacheKey, id, seasonInfo, skip, search, genre, cachePolicy) {
   if (catalogRefreshes.has(cacheKey)) return;
 
   const refresh = (async () => {
@@ -2179,7 +2187,7 @@ async function scheduleCatalogRefresh(cacheKey, id, seasonInfo, skip, search, ca
     try {
       const cached = await getCatalogRuntimeCache(cacheKey);
       if (isFreshCatalogCache(cached)) return;
-      const metas = await buildCatalog(id, seasonInfo, skip, search, null);
+      const metas = await buildCatalog(id, seasonInfo, skip, search, null, genre);
       if (lease) {
         const renewed = await lock.renew(CATALOG_REFRESH_LOCK_LEASE_MS);
         if (lease.isLost() || renewed === false || renewed === null) return;
@@ -2203,7 +2211,7 @@ async function scheduleCatalogRefresh(cacheKey, id, seasonInfo, skip, search, ca
 
 export function getCatalogCacheControl(id, diagnosticsEnabled = false, status = 200) {
   if (diagnosticsEnabled || Number(status) >= 400) return "no-store";
-  if (id === "upcoming_3_days" || id === "previous_3_days") {
+  if (["upcoming_3_days", "previous_3_days", "airing_today", "upcoming_7_days"].includes(id)) {
     // Rolling membership changes as airings cross the now boundary. Keep CDN
     // freshness bounded and do not permit a long stale fallback for these feeds.
     return "public, s-maxage=30, stale-while-revalidate=30";
