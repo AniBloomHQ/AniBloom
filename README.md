@@ -27,9 +27,9 @@ AniBloom brings these eight catalogs together in one list:
 - **Upcoming Season** — Anime from the next upcoming season.
 - **Upcoming Season Movies** — Movies from the next upcoming season.
 
-The optional **extended** setup adds two more catalogs:
+The optional **extended** setup adds two more catalogs (using Japan's broadcast calendar for the Airing Today cutoff):
 
-- **Airing Today** — Upcoming episodes through midnight in Manila (UTC+8).
+- **Airing Today** — Upcoming episodes through midnight in Japan Standard Time (JST, UTC+9).
 - **Upcoming 7 days** — Anime with new episodes over the next seven rolling days.
 
 To avoid additional requests for existing installations, the standard manifest continues to expose only the original eight catalogs.
