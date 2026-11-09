@@ -4,7 +4,7 @@ import { runMockedCatalogProfile } from "../scripts/profile-catalog-cache.mjs";
 
 test("offline cold/stale/limiter-outage profile reports actual mocked resolver fan-out", async () => {
   const profile = await runMockedCatalogProfile();
-  assert.deepEqual(profile.scenarios.map(s => s.mode), ["cold","stale","lock-unavailable"]);
+  assert.deepEqual(profile.scenarios.map(s => s.mode), ["cold","warm","stale","lock-unavailable"]);
   for (const mode of ["cold","stale"]) {
     const s = profile.scenarios.find(x=>x.mode===mode);
     assert.equal(s.workerCount,2);
@@ -14,6 +14,11 @@ test("offline cold/stale/limiter-outage profile reports actual mocked resolver f
     assert.equal(s.providerRequests,16);
     assert.ok(s.elapsedMs >= 0);
   }
+  const warm=profile.scenarios.find(s=>s.mode==="warm");
+  assert.equal(warm.anilistCalls,0);
+  assert.equal(warm.armCalls,0);
+  assert.equal(warm.catalogWrites,0);
+  assert.equal(warm.providerRequests,0);
   const degraded=profile.scenarios.find(s=>s.mode==="lock-unavailable");
   assert.equal(degraded.anilistCalls,2);
   assert.equal(degraded.armCalls,2);

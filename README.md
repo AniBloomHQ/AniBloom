@@ -123,6 +123,8 @@ You can run your own AniBloom instance instead of using the public deployment. T
 
    If Nuvio runs on a different device, `localhost` refers to that device—not the computer hosting AniBloom. In that case, use the host computer's reachable LAN address and ensure its firewall allows the chosen port. Only expose the server to networks you trust.
 
+**Public origin for self-hosting:** The official public URLs remain the default. To advertise your own HTTPS domain consistently in the manifest logo, catalog cards, and Nuvio install links, configure the **non-secret** environment variable `ANIBLOOM_PUBLIC_ORIGIN` to the origin only (e.g. `https://anime.example.org`). Do not include a path, credentials, query, fragment or private token. Invalid values are rejected at startup rather than silently generating incorrect or unsafe links. Local development may use private HTTP addresses such as `http://localhost:3000` or `http://192.168.1.12:3000` only outside Vercel/production; public deployments require HTTPS. The request `Host` header is never used to choose the advertised origin. If using a local HTTP address, Nuvio's remote-device/HTTPS restrictions may require manual installation or a proper HTTPS reverse proxy. See [P1 validation and self-hosting guidance](docs/p1-validation.md).
+
 The local preview server implements the homepage, manifest, version, catalog, and static asset routes. It is intended for local use and development; use the Vercel deployment option below for a public, serverless instance.
 
 ### Option 2: Deploy to your own Vercel project

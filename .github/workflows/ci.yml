@@ -30,6 +30,8 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Run tests
         run: npm test
+      - name: Render homepage in headless Chrome (localhost only)
+        run: node scripts/browser-home-smoke.mjs
 
   version-automation:
     needs: test
