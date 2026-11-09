@@ -35,6 +35,7 @@ function getDonationUrl() {
 
 function icon(id) {
   const paths = {
+    top_season: '<path d="M15 10h18v9c0 7-4 12-9 12s-9-5-9-12v-9Z"/><path d="M15 13H8v5c0 6 4 10 10 10M33 13h7v5c0 6-4 10-10 10"/><path d="M24 31v7M18 38h12M15 42h18"/><path d="m24 14 2.1 4.3 4.7.7-3.4 3.3.8 4.7-4.2-2.2-4.2 2.2.8-4.7-3.4-3.3 4.7-.7Z" fill="currentColor" stroke="none"/>',
     upcoming_3_days: '<rect x="7" y="10" width="27" height="29" rx="4"/><path d="M14 6v9M27 6v9M8 19h25"/><circle cx="33" cy="31" r="10" fill="#fce5ef" stroke="currentColor" stroke-width="2.5"/><path d="M33 25v6l4 2"/>',
     current_season: '<circle cx="24" cy="24" r="8"/><path d="M24 5v6M24 37v6M5 24h6M37 24h6M10.6 10.6l4.2 4.2m18.4 18.4 4.2 4.2m0-26.8-4.2 4.2M14.8 33.2l-4.2 4.2"/>',
     previous_season: '<rect x="7" y="9" width="34" height="32" rx="4"/><path d="M15 5v9M33 5v9M8 18h32"/><path d="m17 29 5 5 10-11"/>',
@@ -44,11 +45,12 @@ function icon(id) {
     previous_season_movies: '<rect x="5" y="9" width="38" height="30" rx="4"/><path d="M13 9v30M35 9v30M5 17h8m-8 14h8m22-14h8m-8 14h8"/><circle cx="35" cy="32" r="10" fill="#fce5ef" stroke="currentColor" stroke-width="2.5"/><path d="m30 32 3 3 6-7"/>',
     upcoming_season_movies: '<rect x="5" y="9" width="38" height="30" rx="4"/><path d="M13 9v30M35 9v30M5 17h8m-8 14h8m22-14h8m-8 14h8"/><circle cx="35" cy="32" r="10" fill="#fce5ef" stroke="currentColor" stroke-width="2.5"/><path d="M35 37V27m-4 4 4-4 4 4"/>'
   };
-  return '<svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">' + paths[id] + '</svg>';
+  return '<svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">' + (paths[id] || '<circle cx="24" cy="24" r="14"/><path d="M24 16v16M16 24h16"/>') + '</svg>';
 }
 
 function iconName(id) {
   const names = {
+    top_season: "trophy",
     upcoming_3_days: "calendar-clock",
     current_season: "sun",
     previous_season: "calendar-check",
