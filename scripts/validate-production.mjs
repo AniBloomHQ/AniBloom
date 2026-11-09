@@ -1,32 +1,20 @@
 import { retryTransientProductionFetch } from "./retry-production-fetch.mjs";
 
-export const PRODUCTION_CATALOG_IDS = [
-  "upcoming_season",
-  "current_season",
-  "previous_season",
-  "upcoming_season_movies",
-  "current_season_movies",
-  "previous_season_movies",
-  "upcoming_3_days",
-  "previous_3_days",
-];
+import { catalogDefinitions, getSeasonInfo } from "../lib/catalog-config.js";
 
-const LEGACY_PRODUCTION_CATALOG_IDS = [
-  "upcoming_season",
-  "current_season",
-  "previous_season",
-  "upcoming_3_days",
-  "previous_3_days",
-];
+// Single source of truth: these IDs and resource types are taken directly
+// from the runtime's catalog definitions, not duplicated in release tooling.
+// The chosen date only supplies labels; catalog IDs and types are static.
+const CURRENT_CATALOGS = catalogDefinitions(getSeasonInfo(new Date("2026-11-09T12:00:00Z")));
+export const PRODUCTION_CATALOG_IDS = Object.freeze(CURRENT_CATALOGS.map(catalog => catalog.id));
+const PRODUCTION_CATALOG_TYPES = new Map(CURRENT_CATALOGS.map(catalog => [catalog.id, catalog.type]));
 
-const MOVIE_CATALOG_IDS = new Set([
-  "upcoming_season_movies",
-  "current_season_movies",
-  "previous_season_movies",
+const LEGACY_PRODUCTION_CATALOG_IDS = Object.freeze([
+  "upcoming_season", "current_season", "previous_season", "upcoming_3_days", "previous_3_days",
 ]);
 
 export function catalogTypeForId(catalogId) {
-  return MOVIE_CATALOG_IDS.has(catalogId) ? "movie" : "series";
+  return PRODUCTION_CATALOG_TYPES.get(catalogId) || "series";
 }
 
 const ID_PATTERN = /^(tt\d+|tvdb:[1-9]\d*|tmdb:[1-9]\d*|mal:[1-9]\d*|anilist:[1-9]\d*|kitsu:[1-9]\d*)$/;
@@ -49,7 +37,7 @@ export function validateManifest(manifest, expectedVersion, { allowLegacy = fals
     && catalogs.every((catalog) => catalog.type === "series");
   if (!newContract && !legacyContract) {
     if (JSON.stringify(ids) !== JSON.stringify(PRODUCTION_CATALOG_IDS) && JSON.stringify(ids) !== JSON.stringify(LEGACY_PRODUCTION_CATALOG_IDS)) {
-      throw new Error("Manifest catalogs do not match the eight supported catalogs.");
+      throw new Error("Manifest catalogs do not match the supported runtime catalog contract.");
     }
     if (catalogs.some((catalog) => catalog.type !== catalogTypeForId(catalog.id))) {
       throw new Error("Manifest catalog types do not match their catalog IDs.");

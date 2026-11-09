@@ -26,7 +26,10 @@ test("catalog snapshots capture all movie and series protocol catalogs across ev
   assert.ok(workflow.includes('"protocolType": "mixed"'));
   assert.ok(workflow.includes('"protocolTypes": ["series", "movie"]'));
   assert.ok(workflow.includes('"legacyProtocolType": "anime"'));
-  assert.ok(workflow.includes("movie:current_season_movies"));
+  assert.ok(workflow.includes("node scripts/catalog-snapshot-contract.mjs"));
+  assert.ok(workflow.includes("catalog-contract.tsv"));
+  assert.ok(!workflow.includes("for entry in series:current_season"));
+  assert.ok(workflow.includes("while IFS=: read -r catalog_type catalog; do"));
   assert.ok(workflow.includes('/catalog/$catalog_type/$catalog.json?skip=$skip'));
   assert.ok(workflow.includes("per-page GET request metadata and raw JSON response"));
   assert.ok(workflow.includes("request metadata count does not match response page count"));

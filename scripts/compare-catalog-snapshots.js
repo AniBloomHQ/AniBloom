@@ -2,7 +2,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { compareCatalogSnapshots, DEFAULT_CATALOGS } from "../lib/catalog-snapshot-diff.js";
+import { compareCatalogSnapshots } from "../lib/catalog-snapshot-diff.js";
 
 const args = process.argv.slice(2);
 if (args.length < 2) {
@@ -14,7 +14,7 @@ const [beforeDir, afterDir, outputDir = "."] = args;
 
 const before = loadSnapshot(beforeDir);
 const after = loadSnapshot(afterDir);
-const diff = compareCatalogSnapshots(before, after);
+const diff = compareCatalogSnapshots(before, after, { allowCatalogChanges: true });
 
 fs.mkdirSync(outputDir, { recursive: true });
 const jsonPath = path.join(outputDir, "release-diff.json");
@@ -36,19 +36,31 @@ function loadSnapshot(directory) {
 
   const catalogs = {};
   const legacyCatalogNames = {
-    upcoming_3_days: "upcoming_5_days",
-    previous_3_days: "previous_7_days",
+    upcoming_5_days: "upcoming_3_days",
+    previous_7_days: "previous_3_days",
   };
-  const legacySnapshot = Number(metadata.schemaVersion || 0) < 4;
-  for (const catalog of DEFAULT_CATALOGS) {
+  // Always respect the release's declared catalogs. Older (pre-schema-v4)
+  // snapshots can omit this field; only those use the known legacy fallback.
+  const declared = Array.isArray(metadata.catalogs)
+    ? metadata.catalogs
+    : Number(metadata.schemaVersion || 0) < 4
+      ? ["current_season", "previous_season", "upcoming_season", "upcoming_5_days", "previous_7_days"]
+      : null;
+  if (!declared || declared.length === 0 || declared.length > 32) {
+    throw new Error("Missing or invalid declared catalog list in capture metadata");
+  }
+  const seen = new Set();
+  for (const rawName of declared) {
+    if (typeof rawName !== "string" || !/^[a-z][a-z0-9_]{0,63}$/.test(rawName)) {
+      throw new Error("Invalid snapshot catalog ID");
+    }
+    const catalog = legacyCatalogNames[rawName] || rawName;
+    if (seen.has(catalog)) throw new Error(`Duplicate normalized snapshot catalog: ${catalog}`);
+    seen.add(catalog);
     const currentPath = path.join(directory, `${catalog}.json`);
-    const legacyPath = path.join(directory, `${legacyCatalogNames[catalog] || ""}.json`);
+    const legacyPath = path.join(directory, `${rawName}.json`);
     const sourcePath = fs.existsSync(currentPath) ? currentPath : legacyPath;
     if (!fs.existsSync(sourcePath)) {
-      if (legacySnapshot && catalog.endsWith("_movies")) {
-        catalogs[catalog] = { metas: [] };
-        continue;
-      }
       throw new Error(`Missing snapshot for ${catalog} (also checked its legacy catalog name)`);
     }
     catalogs[catalog] = readJson(sourcePath);
@@ -88,6 +100,13 @@ function renderMarkdown(diff) {
   lines.push(
     `| **Total** | **${t.before}** | **${t.after}** | **${t.added}** | **${t.removed}** | **${t.matched}** | **${t.unchanged}** | **${t.providerRankImproved}** | **${t.providerRankDegraded}** | **${t.providerChanged}** | **${t.identityEvidenceChanged}** | **${t.canonicalSeriesChanged}** | **${t.identityFallbackChanged}** | **${t.titleChanged}** | **${t.seasonChanged}** | **${t.yearChanged}** | **${t.orderingChanged}** |`,
   );
+
+  if (diff.catalogSetChanges?.added?.length || diff.catalogSetChanges?.removed?.length) {
+    lines.push("", "## Catalog set changes", "");
+    if (diff.catalogSetChanges.added.length) lines.push(`- Added catalogs: ${diff.catalogSetChanges.added.join(", ")}`);
+    if (diff.catalogSetChanges.removed.length) lines.push(`- Retired catalogs: ${diff.catalogSetChanges.removed.join(", ")}`);
+    lines.push("");
+  }
 
   const changed = Object.values(diff.catalogs)
     .flatMap((catalog) => catalog.changes

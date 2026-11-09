@@ -64,7 +64,7 @@ test("legacy production manifest is accepted only for explicit dry-run compatibi
 });
 
 test("production manifest validator requires matching movie and series catalog types", () => {
-  const ids = ["upcoming_season", "current_season", "previous_season", "upcoming_season_movies", "current_season_movies", "previous_season_movies", "upcoming_3_days", "previous_3_days"];
+  const ids = ["upcoming_season", "current_season", "previous_season", "upcoming_season_movies", "current_season_movies", "previous_season_movies", "upcoming_3_days", "previous_3_days", "top_season"];
   const manifest = {
     version: "1.121.0",
     id: "com.marki.nuvio.anime-releases",
@@ -79,7 +79,7 @@ test("production manifest validator requires matching movie and series catalog t
 
 
 test("production validation inspects every catalog page for duplicate identities", async () => {
-  const catalogIds = ["upcoming_season", "current_season", "previous_season", "upcoming_season_movies", "current_season_movies", "previous_season_movies", "upcoming_3_days", "previous_3_days"];
+  const catalogIds = ["upcoming_season", "current_season", "previous_season", "upcoming_season_movies", "current_season_movies", "previous_season_movies", "upcoming_3_days", "previous_3_days", "top_season"];
   const manifest = {
     id: "com.marki.nuvio.anime-releases",
     version: "1.109.0",
