@@ -2045,6 +2045,11 @@ export async function buildRollingCatalog(id, date, skip, search, {
       }
       return filteredMetas;
     },
+    onComplete: ({ budgetExhausted }) => {
+      // Only expose bounded completeness uncertainty through existing
+      // opt-in development diagnostics. Public catalog JSON stays unchanged.
+      if (budgetExhausted && diagnostics) diagnostics.rollingScheduleBudgetExhausted = 1;
+    },
   });
   if (diagnostics) diagnostics.rollingReturnedMetas = Array.isArray(result) ? result.length : 0;
   return result;

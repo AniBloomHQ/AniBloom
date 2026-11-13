@@ -31,6 +31,8 @@ One additional ranked catalog is included in the **original** manifest:
 
 - **Top Anime of the Season** — Popular current-season anime using upstream popularity ordering.
 
+**Finding Top Anime in Nuvio:** This is the **ninth catalog** in the manifest. Some Nuvio versions display only the first eight Home rows initially, so an installed addon can be working correctly even if Top Anime is not immediately visible. In Nuvio Web, open **Settings → Home** to enable or reorder the Top Anime row; on supported TV/mobile builds, look for Catalog Customization. Do not install a separate ranked/extended manifest: those are compatibility aliases of the same nine catalogs.
+
 **Manage your Home rows in Nuvio:** In supported Nuvio Web clients, go to **Settings → Home** to show, hide, and reorder catalog rows. On supported TV/mobile clients, look for **Catalog Customization** or **Reorder Home Catalogs**. The exact menu may vary by platform/version; disabling a catalog on some clients may also make it unavailable to collections. Installing all nine catalogs may increase initial requests until unwanted rows are disabled, particularly for the ranked feed. AniBloom itself does not auto-fetch all nine from the homepage. [Nuvio Web settings documentation](https://orochibraru.com/nuvio-web/docs/profiles-and-settings).
 
 Existing `/extended` and `/ranked` manifest URLs remain supported as compatibility aliases and now return the same nine catalogs. Old installations may cache the two retired schedule rows. Refresh or remove/reinstall AniBloom after a future deployment. The former same-day and seven-day catalog URLs now return HTTP 404; no hidden endpoints remain.

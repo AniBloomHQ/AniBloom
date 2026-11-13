@@ -60,7 +60,7 @@ A background refresh is deduplicated within one warm function instance. This is 
 - Incoming catalog requests are rate-limited per client IP with a distributed Upstash token bucket (120 requests/minute, burst capacity 60). Client IPs are hashed before being used as limiter identifiers; raw IP addresses are not stored in limiter keys. If Redis is unavailable, an instance-local fallback limiter is used, which is not a cross-instance guarantee.
 - Catalog requests accept only GET and OPTIONS. Search queries are limited to 200 characters, and offsets must be non-negative integers no greater than 1,000.
 
-The page budget intentionally bounds worst-case upstream fan-out. If validation removes many candidates or a client requests a deep offset, the catalog may return fewer than the requested page size after the budget is exhausted.
+The page budget intentionally bounds worst-case upstream fan-out. If validation removes many candidates or a client requests a deep offset, the catalog may return fewer than the requested page size after the budget is exhausted. When the last allowed upstream page is full and fewer than the requested number of distinct valid entries have been collected, **preview/development diagnostics** set `rollingScheduleBudgetExhausted: 1` in the existing `X-Nuvio-Catalog-Stages` header. This marks **possible** schedule truncation; it does not prove AniList has another page. There is no speculative ninth upstream call, public metadata/header change, new monitoring job, or increased request budget.
 
 ## Runtime Cache and limiter limitations
 
