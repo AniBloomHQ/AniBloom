@@ -37,7 +37,7 @@ test("all Vercel manifest and catalog rewrite patterns are unique, with no unsup
   assert.deepEqual(rules.filter(rule=>!rule.source.endsWith("/manifest.json")&&!rule.source.includes("/catalog/")).map(rule=>rule.source),["/"]);
   for(const rule of catalogRoutes){
     assert.match(rule.destination,/\/api\/catalog-source\?/);
-    assert.match(rule.source,/\/catalog\/:type\/:id\//);
+    assert.match(rule.source,/\/catalog\/:type\/:id(?:\.json|\/)/);
   }
   assert.deepEqual(manifests.map(rule=>rule.source).filter(route=>route.endsWith("/manifest.json")).length,18);
 });
