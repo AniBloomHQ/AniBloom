@@ -93,6 +93,12 @@ prevents publication of a partially completed page, and returns a retryable 503.
 A shared build owns this deadline; closing one browser preview does not cancel a
 separate catalog build or other callers' shared work.
 
+The first empty-cache build also omits canonical IMDb searches whose results
+cannot change an already selected canonical TMDB route, retaining searches for
+missing roots and current-identity conflicts. Late Kitsu fallback work can
+overlap the final identity checks, but is still applied only to final MAL/AniList
+fallbacks. See the [empty-cache comparison](empty-cache-catalog-results.md).
+
 The first full catalog with no prepared page or mapping records can still be
 slow. Reuse improves subsequent requests, new title-language projections, and
 restarts; it does not make first-ever upstream work free. Website discovery

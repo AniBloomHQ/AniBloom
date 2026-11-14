@@ -112,6 +112,9 @@ The [shared provider cache comparison](docs/shared-provider-cache-results.md)
 measures fresh-process rebuilds with the new Anime Mapper and positive Kitsu
 caches. The [workflow cost audit](docs/workflow-cost-audit.md) identifies which
 manual checks contact the hosted addon and how to reduce those requests.
+The [first empty-cache catalog comparison](docs/empty-cache-catalog-results.md)
+measures the latest cold-load changes. Set `ANIBLOOM_LOCAL_CACHE_FILE` to a new
+filename to test with isolated empty storage; the default cache file is retained.
 
 ### Anime title preferences and existing installations
 
