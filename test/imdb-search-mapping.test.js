@@ -1,6 +1,63 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { clearImdbSearchCache, resolveAniListMappingsByImdbSearch, validateImdbMappingsByKnownIds } from "../lib/imdb-search-mapping.js";
+import { getProviderCandidates, selectProviderIdentity } from "../lib/provider-identity.js";
+
+test("IMDb retains canonical provider metadata when the search label misnames a parent ID", async () => {
+  clearImdbSearchCache();
+  const row = {
+    id: 188034, format: "TV", startDate: { year: 2026 },
+    title: { romaji: "Girls und Panzer: Motto Love Love Sakusen desu!" },
+    synonyms: ["Girls & Panzer - Motto Love Love Sakusen desu!"],
+    relations: { edges: [{ relationType: "PARENT", node: { id: 14131, title: { romaji: "Girls und Panzer" } } }] },
+  };
+  const result = await resolveAniListMappingsByImdbSearch([row], {
+    fetchImpl: async url => new Response(JSON.stringify({ d: [{
+      id: "tt2294076", l: url.endsWith("tt2294076.json") ? "Girls und Panzer" : row.title.romaji,
+      y: url.endsWith("tt2294076.json") ? 2012 : 2026, q: "tvSeries",
+    }] }), { status: 200 }),
+  });
+  const records = result.get(row.id);
+  assert.equal(records[0].title, "Girls und Panzer");
+  assert.equal(selectProviderIdentity({ ...row, anilistId: row.id }, getProviderCandidates(row, records)), null);
+});
+
+test("IMDb shares empty suggestions within one resolver call but retries on the next call", async () => {
+  clearImdbSearchCache();
+  const calls = new Map();
+  const rows = [1, 2].map(id => ({ id, format: "TV", title: { english: "Shared Example" }, startDate: { year: 2026 } }));
+  const fetchImpl = async url => {
+    calls.set(url, (calls.get(url) || 0) + 1);
+    return new Response(JSON.stringify({ d: [] }), { status: 200 });
+  };
+  await resolveAniListMappingsByImdbSearch(rows, { fetchImpl, concurrency: 1 });
+  assert.ok(calls.size > 0);
+  assert.ok([...calls.values()].every(count => count === 1));
+  await resolveAniListMappingsByImdbSearch(rows, { fetchImpl, concurrency: 1 });
+  assert.ok([...calls.values()].every(count => count === 2));
+});
+
+test("IMDb does not accept suggestions returned with a failed HTTP status", async () => {
+  clearImdbSearchCache();
+  const result = await resolveAniListMappingsByImdbSearch([
+    { id: 1, format: "TV", title: { english: "Example" }, startDate: { year: 2026 } },
+  ], { fetchImpl: async () => new Response(JSON.stringify({ d: [{ id: "tt1234", l: "Example", y: 2026, q: "tvSeries" }] }), { status: 404 }) });
+  assert.equal(result.size, 0);
+});
+
+test("IMDb failures do not become cached empty suggestions within the resolver", async () => {
+  clearImdbSearchCache();
+  let calls = 0;
+  const rows = [1, 2].map(id => ({ id, format: "TV", title: { english: "Example" }, startDate: { year: 2026 } }));
+  await resolveAniListMappingsByImdbSearch(rows, {
+    concurrency: 1,
+    fetchImpl: async () => {
+      calls++;
+      return calls === 1 ? new Response("{}", { status: 404 }) : new Response(JSON.stringify({ d: [] }), { status: 200 });
+    },
+  });
+  assert.equal(calls, 2);
+});
 
 test("IMDb fallback selects a title-compatible, year-compatible IMDb result", async () => {
   clearImdbSearchCache();

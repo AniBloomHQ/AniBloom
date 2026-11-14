@@ -8,4 +8,82 @@
 .title-preference select{width:100%;min-height:46px;padding:10px 38px 10px 12px;color:#f4f4f6;background:#1b1c20;border:1px solid #5a5a64;border-radius:10px;font:inherit;cursor:pointer}
 .title-preference select:focus-visible{outline:2px solid #ff79b9;outline-offset:2px}
 .title-preference p{margin:0;color:#b9bbc1;font-size:.84rem;line-height:1.5}
+
+/* Guided installation and previews share the existing midnight/blossom palette. */
+[hidden]{display:none!important}
+button{font:inherit}
+button:focus-visible,input:focus-visible{outline:3px solid var(--pink);outline-offset:4px}
+button:disabled{cursor:wait;opacity:.65}
+.skip-link{position:fixed;top:12px;left:16px;z-index:100;padding:12px 18px;border-radius:8px;background:#fff;color:var(--ink);transform:translateY(-160%)}
+.skip-link:focus{transform:none}
+.setup-link{margin:20px 0 0;color:#c3c4c8;font-size:.9rem}
+.setup-link a{color:var(--blossom);text-underline-offset:4px}
+.install-guide{padding:52px 0 58px;border-top:1px solid var(--border-dark);background:#0d1013;scroll-margin-top:24px}
+.guide-heading{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:28px}
+.guide-heading h2{margin:0;font-size:clamp(1.7rem,3.3vw,2.5rem);letter-spacing:-.045em;line-height:1.15}
+.guide-heading p{margin:12px 0 0;color:var(--muted)}
+.guide-badge{flex-shrink:0;padding:8px 13px;border:1px solid #4d3545;border-radius:24px;color:var(--blossom);font-size:.8rem}
+.install-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:36px}
+.install-options{align-self:start;padding:28px;border:1px solid #303238;border-radius:18px;background:#15181c}
+.step-label{display:block;margin-bottom:16px;color:var(--blossom);font-size:.75rem;font-weight:750;letter-spacing:.1em;text-transform:uppercase}
+.install-guide .title-preference{margin:0;max-width:none;gap:10px}
+.install-guide .title-preference select{background:#0d1013}
+.install-guide .manual-install{margin-top:22px;font-size:.82rem;color:#c3c4c8}
+.install-guide .manual-install a{display:block;margin-top:8px;padding:12px;border:1px solid #3b3e45;border-radius:9px;background:#0d1013;color:#f2d7e6;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.8rem;text-decoration:none;line-height:1.6;overflow-wrap:anywhere}
+.manifest-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.manifest-actions button{cursor:pointer;padding:10px 16px;min-height:44px;font-size:.85rem}
+.manifest-actions .outline-button{background:transparent;border-color:#767980}
+.copy-status{min-height:24px;margin:12px 0 0;color:var(--blossom);font-size:.82rem}
+.manifest-qr{margin-top:18px;padding-top:20px;border-top:1px solid #373a41}
+#qr-image{width:180px;max-width:100%;line-height:0;background:#fff;border-radius:8px;overflow:hidden}
+#qr-image:empty{display:none}
+#qr-image svg{display:block;width:100%;height:auto;shape-rendering:crispEdges}
+.manifest-qr p,.local-install-note{max-width:340px;color:var(--muted);font-size:.82rem;line-height:1.6}
+.manifest-qr p:empty{display:none}
+.local-install-note{margin:16px 0 0;padding:12px;border-left:2px solid var(--blossom);background:#222127}
+.install-instructions{min-width:0;padding-top:6px}
+.platform-picker{border:0;margin:0;padding:0}
+.platform-picker legend{padding:0;margin-bottom:10px;font-size:.95rem;font-weight:650}
+.platform-picker>div{display:flex;gap:8px;flex-wrap:wrap}
+.platform-picker label{position:relative;cursor:pointer}
+.platform-picker input{position:absolute;width:1px;height:1px;opacity:0}
+.platform-picker span{display:block;min-width:76px;padding:8px 16px;border:1px solid #4b4e55;border-radius:24px;text-align:center;font-size:.88rem;color:#d4d5d9}
+.platform-picker input:checked+span{border-color:var(--blossom);background:var(--blossom);color:#171016;font-weight:700}
+.platform-picker input:focus-visible+span{outline:3px solid #fff;outline-offset:4px}
+.setup-steps{margin:20px 0 12px;padding-left:22px;color:#d2d3d8;font-size:.93rem;line-height:1.65}
+.setup-steps li{margin-bottom:8px;padding-left:5px}
+.setup-steps li::marker{color:var(--blossom);font-weight:700}
+.setup-steps a,.guide-install-link{color:var(--blossom);text-underline-offset:4px}
+.guide-install-link{font-size:.87rem;font-weight:650}
+.setup-finish{margin-top:24px;padding-top:22px;border-top:1px solid #303238}
+.setup-finish .step-label{margin-bottom:10px}
+.setup-finish p{margin:0;color:var(--muted);font-size:.9rem;line-height:1.65}
+.setup-help{margin-top:18px}
+.setup-help details{border-top:1px solid #303238}
+.setup-help summary{padding:13px 0;cursor:pointer;font-size:.88rem;font-weight:650}
+.setup-help details p{margin:0 0 16px;color:var(--muted);font-size:.86rem;line-height:1.65}
+.catalog-copy .preview-prompt{display:block;margin-top:8px;color:#744160;font-size:.75rem;font-weight:700}
+body.preview-open{overflow:hidden}
+.catalog-preview{width:min(960px,calc(100% - 32px));max-height:88vh;max-height:88dvh;padding:0;border:1px solid #4b3c48;border-radius:22px;background:#101316;color:var(--white);box-shadow:0 24px 100px #0009;color-scheme:dark}
+.catalog-preview::backdrop{background:rgb(0 0 0/.75);backdrop-filter:blur(5px)}
+.preview-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:28px 28px 20px;border-bottom:1px solid #303238}
+.preview-header h2{margin:0;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:-.035em;line-height:1.2}
+.preview-header .about-kicker{font-size:.65rem}
+.preview-header p{margin:10px 0 0;color:var(--muted);font-size:.83rem}
+.preview-close{flex-shrink:0;width:44px;height:44px;border:1px solid #51535a;border-radius:50%;background:#23262c;color:#fff;font-size:1.8rem;line-height:1;cursor:pointer}
+.preview-body{padding:20px 28px 28px}
+.preview-status{margin:0 0 20px;color:#d3d5da;font-size:.93rem}
+.preview-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:24px 16px;margin:0;padding:0;list-style:none}
+.preview-grid:empty{display:none}
+.preview-grid li{min-width:0}
+.preview-poster{position:relative;display:grid;place-items:center;aspect-ratio:2/3;border:1px solid #3e3540;border-radius:9px;background:linear-gradient(145deg,#302330,#1c222b);overflow:hidden}
+.preview-poster span{padding:12px;text-align:center;color:#bdb5c1;font-size:.75rem}
+.preview-poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.preview-grid h3{margin:10px 0 0;font-size:.82rem;font-weight:650;line-height:1.4;overflow-wrap:anywhere}
+.preview-grid p{margin:4px 0 0;color:#b5b7bf;font-size:.76rem}
+.preview-note{margin:24px 0 0;padding-top:18px;border-top:1px solid #303238;color:var(--muted);font-size:.8rem;line-height:1.6}
+.preview-body .outline-button{background:transparent;cursor:pointer;min-height:44px;font-size:.9rem}
+@media(max-width:900px){.install-layout{gap:24px}.install-options{padding:22px}.guide-badge{display:none}.preview-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:700px){.install-guide{padding:36px 0 40px}.guide-heading{margin-bottom:22px}.install-layout{grid-template-columns:1fr;gap:28px}.install-options{padding:20px}.manifest-actions{gap:8px}.manifest-actions button{padding-inline:14px}.catalog-preview{width:calc(100% - 20px);border-radius:16px;max-height:92dvh}.preview-header{padding:22px 18px 18px}.preview-body{padding:18px}.preview-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:20px 12px}.preview-grid h3{font-size:.8rem}}
+@media(max-width:360px){.preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.manifest-actions button{width:100%}}
 .optional-catalogs{margin-top:30px;padding-top:24px;border-top:1px solid var(--border-light)}.optional-catalogs h3{margin:0;font-size:clamp(1.2rem,2vw,1.45rem);line-height:1.25;letter-spacing:-.035em;font-weight:750}.optional-catalogs p{max-width:760px;margin:7px 0 18px;color:#61656c;font-size:.92rem;line-height:1.55}.optional-catalog-grid .catalog-card-optional{background:linear-gradient(120deg,#fff,#fbf8fc)}@media(max-width:700px){.optional-catalogs{margin-top:26px;padding-top:22px}.optional-catalogs p{margin-bottom:14px}}

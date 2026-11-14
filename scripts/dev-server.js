@@ -4,6 +4,10 @@ import { extname, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import manifest from "../api/resolver-manifest.js";
 import catalog from "../api/catalog-source.js";
+import { configureCatalogPipeline } from "../api/catalog-source.js";
+import preview from "../api/catalog-preview.js";
+import { configureLocalCatalogCache } from "../lib/catalog-runtime-cache.js";
+import { createLocalCatalogCache } from "../lib/local-catalog-cache.js";
 import { ADDON_VERSION } from "../api/version.js";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -85,6 +89,12 @@ export function createPreviewServer() {
     }
     if (/^\/(?:(?:romaji|native)\/)?(?:extended\/)?(?:ranked\/)?(?:(?:betterposters|postersplus)\/)?manifest\.json$/.test(url.pathname)) return manifest(req, res);
     if (url.pathname === "/version") return res.json({ version: ADDON_VERSION });
+    if (url.pathname === "/api/catalog-preview" || /^\/(?:(?:romaji|native)\/)?preview\//.test(url.pathname)) {
+      const result = await preview.fetch(new Request(url, { method: request.method, headers: request.headers }));
+      response.writeHead(result.status, Object.fromEntries(result.headers));
+      response.end(await result.text());
+      return;
+    }
     if (/^\/(?:(?:romaji|native)\/)?(?:extended\/)?(?:ranked\/)?(?:(?:betterposters|postersplus)\/)?catalog\//.test(url.pathname)) {
       const webResponse = await catalog.fetch(new Request(url, {
         method: request.method,
@@ -106,8 +116,17 @@ export function createPreviewServer() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  const cache = await createLocalCatalogCache({ file: resolve(root, ".cache", "catalog-cache.json") });
+  configureLocalCatalogCache(cache);
+  configureCatalogPipeline({ optimized: true });
   const server = createPreviewServer();
   server.listen(port, "0.0.0.0", () => {
     console.log(`AniBloom preview server listening on http://localhost:${port}`);
   });
+  const stop = async () => {
+    await cache.flush().catch(() => {});
+    server.close(() => process.exit(0));
+  };
+  process.once("SIGTERM", stop);
+  process.once("SIGINT", stop);
 }

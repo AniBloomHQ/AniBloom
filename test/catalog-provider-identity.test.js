@@ -314,6 +314,12 @@ test("catalog prefers canonical TMDB identity for Bleach TYBW over a direct IMDb
     resolveAnimapMappings: empty,
     resolveIdMapperMappings: empty,
     resolveAnimeMapperMappings: empty,
+    resolveAnimeMapperRelatedProviderIds: empty,
+    resolveCanonicalSeriesMappings: async () => new Map([[185874, {
+      canonicalAnilistId: 116674, canonicalMalId: 41467,
+      canonicalTitle: "Bleach: Thousand-Year Blood War", canonicalType: "TV", canonicalYear: 2022,
+      canonicalExternal: { tmdb: 30984 },
+    }]]),
     resolveTsvMappings: empty,
     resolveImdbMappings: async () => new Map([[185874, [{
       source: "anime-mapper",

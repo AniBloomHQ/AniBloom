@@ -16,7 +16,9 @@ Changing an installed addon URL can create duplicate Home rows in some Nuvio bui
 
 GitHub's PR and main CI run `node scripts/browser-home-smoke.mjs` after normal Node tests. The script uses the runner's existing Chrome/Chromium executable, a temporary local preview server and a local proxy that injects test-only DOM assertions; production files, live network endpoints and dependencies are unchanged.
 
-It checks both desktop and a mobile-sized viewport, all nine rendered catalog cards and nonempty SVG icons (including Top Anime's trophy), grid responsiveness, English/Romaji/Native language selector events, HTTPS manual installation links, and Nuvio deep links. Browser output is limited to pass/fail details and anonymous viewport/card counts. The proxy and Chrome processes are stopped after the check. If Chrome is not present, the check **fails** rather than silently skipping UI validation. No screenshots or tokens are uploaded as artifacts.
+It checks both desktop and a mobile-sized viewport, all nine rendered catalog cards and nonempty SVG icons (including Top Anime's trophy), grid responsiveness, English/Romaji/Native language selector events, HTTPS manual installation links, and Nuvio deep links. It also exercises platform guidance, successful/denied clipboard access, lazy QR generation and language changes, and catalog dialogs with mocked first-page responses. Preview cases cover the 12-title cap, cache reuse, language isolation, untrusted text/unsafe poster URLs, empty/malformed/error responses, manual retry, `Retry-After`, cancellation, and focus restoration. No actual catalog or poster provider is contacted by these browser fixtures.
+
+Chrome is detected in standard Linux locations or the macOS app path; `CHROME_BIN` can override the executable. Browser output is limited to pass/fail details and anonymous viewport/card counts. The proxy and Chrome processes are stopped after the check. If Chrome is not present, the check **fails** rather than silently skipping UI validation. No screenshots or tokens are uploaded as artifacts.
 
 ## Mocked cache / identity fan-out profile
 

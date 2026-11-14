@@ -46,6 +46,15 @@ import {
 } from "../lib/catalog-request-guard.js";
 import { acquireCatalogRequestPermit } from "../lib/catalog-request-rate-limiter.js";
 import { acquireCatalogRefreshLock } from "../lib/catalog-rate-limiter.js";
+import { checkCatalogDeadline, withCatalogDeadline } from "../lib/catalog-deadline.js";
+import { getVerifiedIdentity, setVerifiedIdentity, verifiedIdentityCacheKey } from "../lib/verified-identity-cache.js";
+import { cacheProviderLookup } from "../lib/catalog-provider-cache.js";
+import { prefetchMappingLookup } from "../lib/catalog-prefetch.js";
+
+let optimizedCatalogs = process.env.ANIBLOOM_OPTIMIZED_CATALOGS === "1";
+export function configureCatalogPipeline({ optimized = false } = {}) {
+  optimizedCatalogs = optimized;
+}
 
 export {
   ANILIST_PAGE_SIZE,
@@ -85,7 +94,7 @@ export function getSeasonInfo(date) {
 let catalogRequestSeen = false;
 
 export function formatCatalogErrorDiagnostics(error) {
-  const category = error?.code === "CATALOG_REFRESH_IN_PROGRESS"
+  const category = error?.code === "CATALOG_BUILD_TIMEOUT" ? "catalog_timeout" : error?.code === "CATALOG_REFRESH_IN_PROGRESS"
     ? "catalog_refresh_in_progress"
     : classifyAniListFailure(error);
   const allowedCodes = new Set([
@@ -93,15 +102,19 @@ export function formatCatalogErrorDiagnostics(error) {
     "ANILIST_RATE_LIMIT_BUDGET",
     "ANILIST_REQUEST_IN_PROGRESS",
     "CATALOG_REFRESH_IN_PROGRESS",
+    "CATALOG_BUILD_TIMEOUT",
     "ANILIST_HTTP_429",
     "ANILIST_HTTP_ERROR",
     "ANILIST_GRAPHQL_ERROR",
+    "ANILIST_INVALID_RESPONSE",
     "ANILIST_TIMEOUT",
   ]);
   const diagnostics = {
     category,
     code: allowedCodes.has(error?.code) ? error.code : "UNKNOWN",
     retryable: [
+      "catalog_timeout",
+      "invalid_response",
       "rate_limit_cooldown",
       "rate_limit_budget",
       "request_in_progress",
@@ -348,7 +361,39 @@ export function normalizeSeasonalCatalogMetaTypes(metas) {
   return metas.map((meta) => ({ ...meta, type: meta.extra?.format === "MOVIE" ? "movie" : "series" }));
 }
 
-async function resolveMappingsForRows(
+async function resolveMappingsForRows(rows, options = {}) {
+  if (!optimizedCatalogs || options.allowProductionIdentityCache !== true) {
+    return resolveMappingsForRowsUncached(rows, options);
+  }
+  const keys = rows.map(verifiedIdentityCacheKey);
+  const cached = await Promise.all(rows.map((row, index) => getVerifiedIdentity(row, keys[index])));
+  const result = new Map();
+  const missing = rows.filter((row, index) => {
+    if (!cached[index]) return true;
+    result.set(Number(row.id), cached[index]);
+    return false;
+  });
+  if (options.diagnostics) options.diagnostics.verifiedIdentityHits = rows.length - missing.length;
+  if (!missing.length) return result;
+  const resolved = await resolveMappingsForRowsUncached(missing, options);
+  checkCatalogDeadline();
+  await Promise.all(missing.map(async row => {
+    const records = resolved.get(Number(row.id)) || [];
+    result.set(Number(row.id), records);
+    const selection = selectCatalogIdentity({ ...row, anilistId: Number(row.id) }, records).selected;
+    // Canonical TMDB roots can be replaced by a subsequently verified current
+    // IMDb identity. Do not freeze that provisional choice in the final-ID cache.
+    const provisionalCanonicalRoot = records.some(record => record.canonicalSeries === true && Number(record.tmdbTvId) > 0);
+    const verified = selection && !provisionalCanonicalRoot && (
+      hasStrongDirectProviderEvidence(selection)
+      || selection.evidence?.some(entry => ["imdb-search", "imdb-search-canonical-series", "tmdb-search", "tmdb-season-verified", "anime-mapper-canonical-series"].includes(entry.source))
+    );
+    if (verified) await setVerifiedIdentity(row, records, keys[rows.indexOf(row)]);
+  }));
+  return result;
+}
+
+async function resolveMappingsForRowsUncached(
   rows,
   {
     resolveMappings = resolveAniListMappings,
@@ -372,14 +417,28 @@ async function resolveMappingsForRows(
   } = {},
 ) {
   const ids = rows.map((row) => Number(row.id));
+  if (optimizedCatalogs) {
+    if (resolveFribbMappings === resolveAniListMappingsFribb) resolveFribbMappings = cacheProviderLookup("fribb", resolveFribbMappings, rows, { cacheEmpty: true });
+    if (resolveAniBridgeMappings === resolveAniListMappingsByAniBridge) resolveAniBridgeMappings = cacheProviderLookup("anibridge", targets => resolveAniListMappingsByAniBridge(targets, { preferCompressed: true }), rows, { cacheEmpty: true });
+    if (resolveTsvMappings === resolveAniListMappingsFromAnimeApiTsv) resolveTsvMappings = cacheProviderLookup("animeapi-tsv", resolveTsvMappings, rows, { cacheEmpty: true });
+    // A cold page commonly needs these three bulk datasets. Overlap their reads
+    // with ARM and verification, while retaining the original merge order and
+    // unresolved-row filters. Small misses avoid speculative bulk downloads.
+    if (rows.length >= 10) {
+      resolveFribbMappings = prefetchMappingLookup(resolveFribbMappings, ids);
+      resolveAniBridgeMappings = prefetchMappingLookup(resolveAniBridgeMappings, rows);
+      resolveTsvMappings = prefetchMappingLookup(resolveTsvMappings, rows);
+    }
+  }
   let mappings = new Map();
+  let loadRelatedProviderIds = resolveRelatedProviderIds;
 
+  const armStart = diagnostics ? performance.now() : 0;
   try {
-    const stageStart = diagnostics ? performance.now() : 0;
     mappings = await resolveMappings(ids);
-    if (diagnostics) diagnostics.arm = performance.now() - stageStart;
+    if (diagnostics) diagnostics.arm = performance.now() - armStart;
   } catch (error) {
-    if (diagnostics) diagnostics.arm = performance.now() - stageStart;
+    if (diagnostics) diagnostics.arm = performance.now() - armStart;
     console.error("[identity] ARM mapping failed; using secondary mapping sources", error);
   }
 
@@ -648,6 +707,19 @@ async function resolveMappingsForRows(
     }
   }
 
+  if (optimizedCatalogs && rows.length >= 10) {
+    // Overlap ownership reads with IMDb/recovery. Start after the direct
+    // Anime Mapper stage so its CDN concurrency does not stack with these
+    // relation lookups; apply protection at its original stage below.
+    loadRelatedProviderIds = prefetchMappingLookup(
+      targets => resolveRelatedProviderIds(targets, {
+        resolveMappings, resolveFribbMappings, resolveExternalMappings,
+        resolveAnimeMapperMappings, resolveAnimeMapperRelatedProviderIds,
+      }),
+      rows.filter(hasExplicitProviderRelations),
+    );
+  }
+
   unresolvedRows = rows.filter((row) => {
     const selected = selectProviderIdentity(
       { ...row, anilistId: Number(row.id) },
@@ -736,6 +808,12 @@ async function resolveMappingsForRows(
     }
   }
 
+  // The MAL bridge may have resolved a title. Do not fetch its relations again.
+  stillUnresolvedRows = stillUnresolvedRows.filter((row) => !selectProviderIdentity(
+    { ...row, anilistId: Number(row.id) },
+    getProviderCandidates({ ...row, anilistId: Number(row.id) }, mappings.get(Number(row.id)) || []),
+  ));
+
   if (stillUnresolvedRows.length) {
     try {
       const stageStart = diagnostics ? performance.now() : 0;
@@ -775,6 +853,7 @@ async function resolveMappingsForRows(
 
   const protectionStart = diagnostics ? performance.now() : 0;
   await applyRelatedProviderProtection(rows, mappings, {
+    loadRelatedProviderIds,
     resolveMappings,
     resolveFribbMappings,
     resolveExternalMappings,
@@ -788,11 +867,11 @@ async function resolveMappingsForRows(
   // downstream scrapers. This is deliberately additive: the source row's
   // AniList identity and display metadata remain unchanged while the
   // scraper-facing provider identity is anchored to the canonical series.
+  const canonicalStart = diagnostics ? performance.now() : 0;
   try {
     // Canonical-series traversal is a network-heavy fallback. Keep it for
     // explicit canonical relations and rows whose current identity is not
     // independently verified, while skipping identities it cannot change.
-    const canonicalStart = diagnostics ? performance.now() : 0;
     const canonicalCandidates = rows.filter((row) => row.format !== "MOVIE" && shouldResolveCanonicalSeries(row, mappings));
     const canonicalRoots = canonicalCandidates.length
       ? await resolveCanonicalSeriesMappings(canonicalCandidates)
@@ -801,6 +880,7 @@ async function resolveMappingsForRows(
     const canonicalByCurrentId = new Map();
     for (const [currentId, root] of canonicalRoots instanceof Map ? canonicalRoots : []) {
       if (!root?.canonicalTitle || !root?.canonicalMalId) continue;
+      if (String(root.canonicalType || "").toUpperCase() === "MOVIE") continue;
       const currentRow = rows.find((row) => Number(row?.id) === Number(currentId));
       if (!currentRow) continue;
       canonicalByCurrentId.set(Number(currentId), root);
@@ -897,8 +977,8 @@ async function resolveMappingsForRows(
     return isSelectedIdentityProtected(media, candidates);
   });
   if (relationRetryRows.length) {
+    const stageStart = diagnostics ? performance.now() : 0;
     try {
-      const stageStart = diagnostics ? performance.now() : 0;
       const retryMappings = await resolveImdbMappings(relationRetryRows);
       for (const [id, records] of retryMappings instanceof Map ? retryMappings : []) {
         const existing = mappings.get(id) || [];
@@ -976,7 +1056,7 @@ async function applyRelatedProviderProtection(rows, mappings, dependencies) {
   if (!relationProtectedRows.length) return new Map();
 
   try {
-    const protectedIds = await resolveRelatedProviderIds(relationProtectedRows, dependencies);
+    const protectedIds = await (dependencies.loadRelatedProviderIds || resolveRelatedProviderIds)(relationProtectedRows, dependencies);
     for (const row of relationProtectedRows) {
       const relatedProviderIds = protectedIds.get(Number(row.id)) || [];
       row.relatedProviderIds = relatedProviderIds;
@@ -2055,6 +2135,11 @@ export async function buildRollingCatalog(id, date, skip, search, {
   return result;
 }
 export async function buildCatalog(id, info, skip, search, diagnostics = null, genre = "") {
+  const build = () => buildCatalogContents(id, info, skip, search, diagnostics, genre);
+  return optimizedCatalogs ? withCatalogDeadline(build) : build();
+}
+
+async function buildCatalogContents(id, info, skip, search, diagnostics = null, genre = "") {
   const filter = getCatalogFilter(id, info);
   if (filter) {
     const result = await fetchValidatedSeasonCatalogPage({
@@ -2074,6 +2159,7 @@ export async function buildCatalog(id, info, skip, search, diagnostics = null, g
 }
 
 const catalogRefreshes = new Map();
+const catalogBuilds = new Map();
 const CATALOG_REFRESH_LOCK_LEASE_MS = 60_000;
 const CATALOG_REFRESH_LOCK_RENEW_INTERVAL_MS = 20_000;
 const CATALOG_REFRESH_WAIT_MS = 20_000;
@@ -2126,6 +2212,15 @@ function startCatalogRefreshLeaseRenewal(lock) {
 }
 
 async function buildCatalogWithRefreshLock(cacheKey, build, cachePolicy) {
+  const existing = catalogBuilds.get(cacheKey);
+  if (existing) return existing;
+  const pending = buildCatalogWithDistributedLock(cacheKey, build, cachePolicy);
+  catalogBuilds.set(cacheKey, pending);
+  try { return await pending; }
+  finally { if (catalogBuilds.get(cacheKey) === pending) catalogBuilds.delete(cacheKey); }
+}
+
+async function buildCatalogWithDistributedLock(cacheKey, build, cachePolicy) {
   const deadline = Date.now() + CATALOG_REFRESH_WAIT_MS;
   while (true) {
     const lock = await acquireCatalogRefreshLock(cacheKey, {

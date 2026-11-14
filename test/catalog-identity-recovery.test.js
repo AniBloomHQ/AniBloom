@@ -2,6 +2,25 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { canonicalizeCatalogPage } from "../api/catalog-source.js";
 
+test("a MAL bridge match skips redundant relation title searches", async () => {
+  const empty = async () => new Map();
+  const searched = [];
+  const row = { id: 990001, idMal: 990002, format: "TV", title: { english: "Current Example" }, startDate: { year: 2026 },
+    relations: { edges: [{ relationType: "PREQUEL", node: { id: 990003, idMal: 990004, format: "TV", title: { english: "Earlier Example" }, startDate: { year: 2020 } } }] } };
+  const result = await canonicalizeCatalogPage([row], {
+    resolveMappings: empty, resolveFribbMappings: empty, resolveExternalMappings: () => new Map(),
+    resolveAnimapMappings: empty, resolveIdMapperMappings: empty, resolveTMDBMappings: empty,
+    resolveAnimeMapperMappings: empty, resolveAnimeMapperRelatedProviderIds: empty,
+    resolveCanonicalSeriesMappings: empty, resolveAniBridgeMappings: empty, resolveTsvMappings: empty,
+    resolveImdbMappings: async rows => { searched.push(...rows.map(row => row.id)); return new Map(); },
+    validateImdbMappings: empty, resolveSecondaryMappings: empty,
+    resolveAlternativeMappings: async () => new Map([[row.id, [{ source: "animeapi", anilistId: row.id, type: "TV", imdbIds: ["tt990001"], title: "Current Example", year: 2026 }]]]),
+  });
+  assert.equal(result[0].id, "tt990001");
+  assert.ok(searched.length > 0);
+  assert.ok(searched.every(id => id === row.id), "the resolved title must not trigger an IMDb search for its prequel");
+});
+
 test("identity recovery continues when an earlier recovery source fails", async () => {
   let armCalls = 0;
   let fribbCalls = 0;
