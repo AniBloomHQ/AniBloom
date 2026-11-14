@@ -1,4 +1,5 @@
 import { retryTransientProductionFetch } from "./retry-production-fetch.mjs";
+import { createBudgetedProductionFetch } from "./production-request-budget.mjs";
 
 import { catalogDefinitions, getSeasonInfo } from "../lib/catalog-config.js";
 
@@ -97,7 +98,8 @@ export async function validateLogoAsset(baseUrl, logoUrl, fetchImpl = fetch) {
   return true;
 }
 
-export async function validateProduction(baseUrl, expectedVersion, fetchImpl = fetch, { allowLegacy = false } = {}) {
+export async function validateProduction(baseUrl, expectedVersion, fetchImpl = fetch, { allowLegacy = false, maxRequests = 100 } = {}) {
+  fetchImpl = createBudgetedProductionFetch(fetchImpl, maxRequests);
   const base = String(baseUrl).replace(/\/$/, "");
   const manifestResponse = await fetchImpl(`${base}/manifest.json`);
   if (!manifestResponse.ok) throw new Error(`Manifest request failed: HTTP ${manifestResponse.status}`);
@@ -161,7 +163,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const baseUrl = process.env.PRODUCTION_BASE_URL || "https://anibloom.vercel.app";
   const expectedVersion = process.env.EXPECTED_VERSION;
   if (!expectedVersion) throw new Error("EXPECTED_VERSION is required.");
-  await validateProduction(baseUrl, expectedVersion, (url) => retryTransientProductionFetch(fetch, url), { allowLegacy: process.env.ALLOW_LEGACY_PRODUCTION_CONTRACT === "true" });
+  // Budget actual HTTP attempts inside retries, as well as logical validator
+  // requests. Exhaustion fails the release instead of claiming partial success.
+  const budget = Number(process.env.MAX_PRODUCTION_REQUESTS || 100);
+  const fetchWithBudget = createBudgetedProductionFetch(fetch, budget);
+  await validateProduction(baseUrl, expectedVersion, (url) => retryTransientProductionFetch(fetchWithBudget, url), {
+    allowLegacy: process.env.ALLOW_LEGACY_PRODUCTION_CONTRACT === "true", maxRequests: budget,
+  });
   console.log("Production validation passed.");
 }
 

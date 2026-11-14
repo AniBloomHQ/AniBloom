@@ -35,6 +35,7 @@ export async function retryTransientProductionFetch(fetchImpl, url, {
     try {
       response = await fetchImpl(url, init);
     } catch (error) {
+      if (error?.code === "PRODUCTION_REQUEST_BUDGET_EXHAUSTED") throw error;
       if (attempt === attempts) throw error;
       await sleep(Math.min(5000, 1000 * 2 ** (attempt - 1)));
       continue;

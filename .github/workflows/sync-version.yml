@@ -19,8 +19,13 @@ on:
         default: false
         type: boolean
       dry_run:
-        description: 'Validate a production release without deploying, tagging, or mutating release state'
+        description: 'Offline release checks; no hosted requests unless live_validation is also enabled'
         required: true
+        default: false
+        type: boolean
+      live_validation:
+        description: 'Allow production requests during a dry run (uses hosted function capacity)'
+        required: false
         default: false
         type: boolean
       full_validation:
@@ -73,10 +78,23 @@ jobs:
           DEPLOY_PROD: ${{ inputs.deploy_prod }}
           FINALIZE_RELEASE: ${{ inputs.finalize_release }}
           DRY_RUN: ${{ inputs.dry_run }}
+          LIVE_VALIDATION: ${{ inputs.live_validation }}
           RELEASE_TARGET_SHA_INPUT: ${{ inputs.release_target_sha }}
           COMMIT_MESSAGE: ${{ github.event.head_commit.message || '' }}
         run: |
           set -euo pipefail
+          modes=0
+          for selected in "$DEPLOY_PROD" "$FINALIZE_RELEASE" "$DRY_RUN"; do
+            if [[ "$selected" == "true" ]]; then modes=$((modes + 1)); fi
+          done
+          if (( modes > 1 )); then
+            echo "Choose only one of deploy_prod, finalize_release and dry_run." >&2
+            exit 1
+          fi
+          if [[ "$LIVE_VALIDATION" == "true" && "$DRY_RUN" != "true" ]]; then
+            echo "live_validation requires dry_run; deploy/finalize already include required live checks." >&2
+            exit 1
+          fi
           normalize_target() {
             local target
             target="$(printf '%s' "$RELEASE_TARGET_SHA_INPUT" | tr -d '[:space:]')"
@@ -118,6 +136,12 @@ jobs:
             echo "release=false" >> "$GITHUB_OUTPUT"
             echo "redeploy=false" >> "$GITHUB_OUTPUT"
           fi
+          if [[ "$DRY_RUN" == "true" && "$LIVE_VALIDATION" != "true" ]]; then
+            echo "live_requests=false" >> "$GITHUB_OUTPUT"
+            echo "Offline dry run: no deployment, production polling or catalog crawl." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "live_requests=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Validate repository release metadata
         if: steps.gate.outputs.release == 'true' || inputs.dry_run == true
         run: node scripts/release-integrity.mjs
@@ -156,7 +180,7 @@ jobs:
               raise SystemExit(f"Release target version {version} does not match next release baseline {expected}.")
           PY
       - name: Determine extended validation scope
-        if: steps.gate.outputs.release == 'true' || inputs.dry_run == true
+        if: steps.gate.outputs.release == 'true' && steps.gate.outputs.live_requests == 'true'
         id: validation_scope
         env:
           RELEASE_TARGET_SHA: ${{ steps.gate.outputs.release_target_sha }}
@@ -178,7 +202,7 @@ jobs:
           validateReleaseConcurrencyState({ state, targetVersion: process.env.TARGET_VERSION });
           NODE
       - name: Check for an existing Vercel deployment
-        if: steps.gate.outputs.release == 'true' && inputs.dry_run != true
+        if: steps.gate.outputs.release == 'true' && steps.gate.outputs.live_requests == 'true'
         id: existing_vercel
         env:
           GH_TOKEN: ${{ github.token }}
@@ -187,6 +211,7 @@ jobs:
           set -euo pipefail
           target="$RELEASE_TARGET_SHA"
           status_payload="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${target}/status")"
+          printf '%s' "$status_payload" | node scripts/assert-vercel-account-ready.mjs
           deployment_id="$(printf '%s' "$status_payload" | node scripts/resolve-vercel-deployment-id.mjs || true)"
           if [ -n "$deployment_id" ]; then
             echo "needs_deploy=false" >> "$GITHUB_OUTPUT"
@@ -198,13 +223,13 @@ jobs:
             echo "No existing successful Vercel deployment found for target."
           fi
       - name: Trigger Vercel deployment
-        if: steps.gate.outputs.release == 'true' && steps.gate.outputs.redeploy == 'true' && steps.existing_vercel.outputs.needs_deploy == 'true' && inputs.dry_run != true
+        if: steps.gate.outputs.release == 'true' && steps.gate.outputs.live_requests == 'true' && steps.gate.outputs.redeploy == 'true' && steps.existing_vercel.outputs.needs_deploy == 'true' && inputs.dry_run != true
         env:
           VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
         run: test -n "$VERCEL_DEPLOY_HOOK_URL" && curl --fail --silent --show-error --request POST "$VERCEL_DEPLOY_HOOK_URL"
 
       - name: Production smoke test
-        if: steps.gate.outputs.release == 'true' || inputs.dry_run == true
+        if: steps.gate.outputs.release == 'true' && steps.gate.outputs.live_requests == 'true'
         env:
           REDEPLOY: ${{ steps.gate.outputs.redeploy }}
           RELEASE_TARGET_SHA: ${{ steps.gate.outputs.release_target_sha }}
@@ -299,11 +324,12 @@ jobs:
           done
           exit 1
       - name: Extended production validation
-        if: steps.validation_scope.outputs.full == 'true'
+        if: steps.gate.outputs.live_requests == 'true' && steps.validation_scope.outputs.full == 'true'
         env:
           REDEPLOY: ${{ steps.gate.outputs.redeploy }}
           RELEASE_TARGET_SHA: ${{ steps.gate.outputs.release_target_sha }}
           DRY_RUN: ${{ inputs.dry_run }}
+          MAX_PRODUCTION_REQUESTS: '100'
         run: |
           set -euo pipefail
           if [ "$REDEPLOY" = "true" ]; then
