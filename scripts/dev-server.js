@@ -116,7 +116,10 @@ export function createPreviewServer() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  const cache = await createLocalCatalogCache({ file: resolve(root, ".cache", "catalog-cache.json") });
+  const cacheFile = process.env.ANIBLOOM_LOCAL_CACHE_FILE
+    ? resolve(root, process.env.ANIBLOOM_LOCAL_CACHE_FILE)
+    : resolve(root, ".cache", "catalog-cache.json");
+  const cache = await createLocalCatalogCache({ file: cacheFile });
   configureLocalCatalogCache(cache);
   configureCatalogPipeline({ optimized: true });
   const server = createPreviewServer();

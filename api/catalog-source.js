@@ -49,7 +49,7 @@ import { acquireCatalogRefreshLock } from "../lib/catalog-rate-limiter.js";
 import { checkCatalogDeadline, withCatalogDeadline } from "../lib/catalog-deadline.js";
 import { getVerifiedIdentity, setVerifiedIdentity, verifiedIdentityCacheKey } from "../lib/verified-identity-cache.js";
 import { cacheProviderLookup } from "../lib/catalog-provider-cache.js";
-import { prefetchMappingLookup } from "../lib/catalog-prefetch.js";
+import { prefetchMappingLookup, createFallbackPrefetch } from "../lib/catalog-prefetch.js";
 import { configureSharedProviderCaching } from "../lib/shared-provider-cache.js";
 
 let optimizedCatalogs = process.env.ANIBLOOM_OPTIMIZED_CATALOGS === "1";
@@ -416,6 +416,7 @@ async function resolveMappingsForRowsUncached(
     diagnostics = null,
     allowProductionIdentityCache = false,
     tmdbResolverBudget = null,
+    prefetchFallbackMappings = null,
   } = {},
 ) {
   const ids = rows.map((row) => Number(row.id));
@@ -816,6 +817,15 @@ async function resolveMappingsForRowsUncached(
     getProviderCandidates({ ...row, anilistId: Number(row.id) }, mappings.get(Number(row.id)) || []),
   ));
 
+  if (typeof prefetchFallbackMappings === "function" && stillUnresolvedRows.length) {
+    const fallbackTargets = stillUnresolvedRows.map(row => {
+      const malId = getCanonicalMalId(row, null, mappings.get(Number(row.id)) || []);
+      return { id: Number(row.id), idMal: malId, currentFallbackId: malId ? `mal:${malId}` : `anilist:${row.id}` };
+    });
+    prefetchFallbackMappings(fallbackTargets);
+    if (diagnostics) diagnostics.kitsuPrefetchedRows = fallbackTargets.length;
+  }
+
   if (stillUnresolvedRows.length) {
     try {
       const stageStart = diagnostics ? performance.now() : 0;
@@ -880,11 +890,18 @@ async function resolveMappingsForRowsUncached(
       : new Map();
     const canonicalRows = [];
     const canonicalByCurrentId = new Map();
+    const currentImdbById = new Map();
     for (const [currentId, root] of canonicalRoots instanceof Map ? canonicalRoots : []) {
       if (!root?.canonicalTitle || !root?.canonicalMalId) continue;
       if (String(root.canonicalType || "").toUpperCase() === "MOVIE") continue;
       const currentRow = rows.find((row) => Number(row?.id) === Number(currentId));
       if (!currentRow) continue;
+      const currentMedia = { ...currentRow, anilistId: Number(currentId) };
+      currentImdbById.set(Number(currentId), selectProviderIdentity(
+        currentMedia,
+        getProviderCandidates(currentMedia, mappings.get(Number(currentId)) || []).filter(candidate =>
+          candidate.provider === "imdb" && hasStrongDirectProviderEvidence(candidate)),
+      ));
       canonicalByCurrentId.set(Number(currentId), root);
       canonicalRows.push({
         ...currentRow,
@@ -898,7 +915,16 @@ async function resolveMappingsForRowsUncached(
       });
     }
     if (canonicalRows.length) {
-      const canonicalImdb = await resolveImdbMappings(canonicalRows);
+      // A canonical TMDB root already determines publication when there is no
+      // strong current IMDb identity to protect. An additional root IMDb search
+      // cannot change that choice. Keep it for missing TMDB roots and conflicts.
+      const canonicalImdbRows = canonicalRows.filter(row => {
+        const tmdbId = Number(canonicalByCurrentId.get(Number(row.id))?.canonicalExternal?.tmdb);
+        return !optimizedCatalogs || !Number.isInteger(tmdbId) || tmdbId <= 0
+          || currentImdbById.get(Number(row.id));
+      });
+      if (diagnostics) diagnostics.canonicalImdbRowsSkipped = canonicalRows.length - canonicalImdbRows.length;
+      const canonicalImdb = canonicalImdbRows.length ? await resolveImdbMappings(canonicalImdbRows) : new Map();
       for (const [currentId, root] of canonicalByCurrentId) {
         if (!root) continue;
         const records = canonicalImdb instanceof Map ? canonicalImdb.get(Number(currentId)) : [];
@@ -934,20 +960,7 @@ async function resolveMappingsForRowsUncached(
             relation: false,
           })),
         ];
-        const currentRow = rows.find((row) => Number(row?.id) === Number(currentId));
-        const currentCandidates = currentRow
-          ? getProviderCandidates(
-            { ...currentRow, anilistId: Number(currentId) },
-            mappings.get(Number(currentId)) || [],
-          )
-          : [];
-        const independentlyVerifiedCurrentImdb = selectProviderIdentity(
-          { ...(currentRow || {}), anilistId: Number(currentId) },
-          currentCandidates.filter((candidate) =>
-            candidate.provider === "imdb"
-            && hasStrongDirectProviderEvidence(candidate),
-          ),
-        );
+        const independentlyVerifiedCurrentImdb = currentImdbById.get(Number(currentId));
         const canonicalImdbIds = new Set(
           canonicalRecords.flatMap((record) =>
             Array.isArray(record?.imdbIds)
@@ -1750,7 +1763,12 @@ export async function canonicalizeCatalogPage(mediaRows, options = {}) {
       .filter((row) => /^\d+$/.test(String(row.id ?? "").trim()))
     : [];
   if (!normalizedRows.length) return [];
-  const mappings = await resolveMappingsForRows(normalizedRows, normalizedOptions);
+  const kitsuResolver = normalizedOptions.resolveKitsuMappings || resolveAniListKitsuMappings;
+  const kitsuPrefetch = optimizedCatalogs && normalizedOptions.enableKitsuFallback === true
+    ? createFallbackPrefetch(kitsuResolver) : null;
+  const mappings = await resolveMappingsForRows(normalizedRows, {
+    ...normalizedOptions, prefetchFallbackMappings: kitsuPrefetch?.start,
+  });
   const metas = [];
   const usedIdentities = new Set();
   const unresolvedIds = [];
@@ -1866,7 +1884,7 @@ export async function canonicalizeCatalogPage(mediaRows, options = {}) {
   const finalMetas = normalizedOptions.enableKitsuFallback === true
     ? await applyKitsuFallback(
       metas,
-      normalizedOptions.resolveKitsuMappings || resolveAniListKitsuMappings,
+      kitsuPrefetch?.resolve || kitsuResolver,
       normalizedOptions.diagnostics,
     )
     : metas;
@@ -1973,6 +1991,8 @@ export async function buildRollingCatalog(id, date, skip, search, {
       const searchedRows = filterAiringRowsBySearch(uniqueEligibleRows, search);
       const identityDiagnostics = diagnostics ? {} : null;
       const mappingStart = diagnostics ? performance.now() : 0;
+      const kitsuPrefetch = optimizedCatalogs && enableKitsuFallback
+        ? createFallbackPrefetch(resolveKitsuMappings) : null;
       const mappings = await resolveMappingsForRows(searchedRows.map((row) => row.media), {
         resolveMappings,
         resolveFribbMappings,
@@ -1992,6 +2012,7 @@ export async function buildRollingCatalog(id, date, skip, search, {
         tmdbResolverBudget,
         diagnostics: identityDiagnostics,
         allowProductionIdentityCache: true,
+        prefetchFallbackMappings: kitsuPrefetch?.start,
       });
       if (diagnostics) {
         identityDiagnostics.identityResolution = performance.now() - mappingStart;
@@ -2113,7 +2134,7 @@ export async function buildRollingCatalog(id, date, skip, search, {
         metas.push(meta);
       }
       const finalMetas = enableKitsuFallback
-        ? await applyKitsuFallback(metas, resolveKitsuMappings, diagnostics)
+        ? await applyKitsuFallback(metas, kitsuPrefetch?.resolve || resolveKitsuMappings, diagnostics)
         : metas;
       const filteredMetas = filterCatalogMetasBySearch(finalMetas, search);
       if (diagnostics) {
