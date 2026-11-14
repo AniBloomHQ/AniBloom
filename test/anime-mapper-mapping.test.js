@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { getProviderCandidates, selectProviderIdentity } from "../lib/provider-identity.js";
 import {
   clearAnimeMapperCache,
   resolveAniListMappingsByAnimeMapper,
@@ -10,6 +11,34 @@ import {
 function response(record) {
   return { ok: true, async json() { return record; } };
 }
+
+test("Anime Mapper preserves a movie namespace when AniList labels the row TV", async () => {
+  clearAnimeMapperCache();
+  const row = { id: 188034, idMal: 61227, format: "TV", title: { romaji: "Girls und Panzer: Motto Love Love Sakusen desu!" }, startDate: { year: 2026 } };
+  const result = await resolveAniListMappingsByAnimeMapper([row], {
+    fetchImpl: async () => response({
+      mappings: { anilist: 188034, tmdb: 1591447, traktType: "movies" },
+      type: "Movie",
+    }),
+  });
+  const records = result.get(row.id);
+  assert.equal(records[0].type, "MOVIE");
+  assert.equal(records[0].tmdbTvId, null);
+  assert.deepEqual(records[0].tmdbMovieIds, [1591447]);
+  assert.equal(selectProviderIdentity({ ...row, anilistId: row.id }, getProviderCandidates(row, records)), null);
+});
+
+test("Anime Mapper does not turn an explicitly mapped TV show into a movie", async () => {
+  clearAnimeMapperCache();
+  const row = { id: 1, idMal: 2, format: "MOVIE", title: { english: "Example" } };
+  const result = await resolveAniListMappingsByAnimeMapper([row], {
+    fetchImpl: async () => response({ mappings: { anilist: 1, tmdb: 123, traktType: "shows" }, type: "TV" }),
+  });
+  const records = result.get(row.id);
+  assert.equal(records[0].type, "TV");
+  assert.deepEqual(records[0].tmdbMovieIds, []);
+  assert.equal(selectProviderIdentity(row, getProviderCandidates(row, records)), null);
+});
 
 test("Anime Mapper normalizes a direct TVDB/TMDB mapping", async () => {
   clearAnimeMapperCache();

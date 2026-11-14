@@ -13,6 +13,18 @@ function media(overrides = {}) {
   };
 }
 
+test("a matching side-story title cannot authorize a different parent provider ID", () => {
+  const row = {
+    id: 188034, anilistId: 188034, format: "TV", startDate: { year: 2026 },
+    title: { romaji: "Girls und Panzer: Motto Love Love Sakusen desu!" },
+    relatedProviderIds: ["imdb:tt2294076"],
+    relatedProviderTitles: ["Girls und Panzer", "Girls und Panzer: Motto Love Love Sakusen desu! Mini Anime"],
+  };
+  const records = [{ source: "imdb-search", anilistId: row.id, type: "TV", imdbIds: ["tt2294076"],
+    title: "Girls & Panzer", year: null, derivedTitle: true, derivedSearchTitle: "Girls & Panzer" }];
+  assert.equal(selectProviderIdentity(row, getProviderCandidates(row, records)), null);
+});
+
 test("provider identity prefers TMDB over IMDb and TVDB when all are valid", () => {
   const records = [{
     source: "arm",

@@ -82,3 +82,14 @@ test("canonical series catalog identity falls back to IMDb without a TMDB root m
   assert.equal(meta?.extra?.identityProvider, "imdb");
   assert.equal(meta?.extra?.identityCanonicalSeries, true);
 });
+
+test("a movie root cannot manufacture a canonical TMDB TV route", async () => {
+  const options = resolverOptions();
+  options.resolveCanonicalSeriesMappings = async () => new Map([[185874, {
+    canonicalAnilistId: 269, canonicalMalId: 269, canonicalTitle: "Bleach Movie",
+    canonicalType: "Movie", canonicalYear: 2004, canonicalExternal: { tmdb: 1234 },
+  }]]);
+  const [meta] = await canonicalizeCatalogPage([currentRow], options);
+  assert.equal(meta.id, "mal:185874");
+  assert.equal(meta.extra.identityCanonicalSeries, undefined);
+});
