@@ -1,5 +1,11 @@
 # GitHub workflow and hosted-request audit — November 14, 2026
 
+Update, November 15: the workflow-only safeguards were merged to `main` in
+[PR #573](https://github.com/AniBloomHQ/AniBloom/pull/573), commit
+`e3a9a30d4d1f18e066d9082c7c640dfc8db787e8`. Main tests, secret scanning and
+both CodeQL analyses passed. Release and version-automation jobs were skipped.
+The runtime cache implementation remains local.
+
 The merge of PR #571 passed main CI, the full Git-history secret scan and
 CodeQL. The controlled release job was **skipped**, so that merge did not run
 the deployment hook or production smoke/validation steps. An automated version

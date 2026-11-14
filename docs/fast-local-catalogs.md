@@ -57,6 +57,15 @@ results last six hours. A confirmed empty result from a successfully loaded bulk
 dataset lasts five minutes. Failed lookups are not cached as empty successes, and
 ARM empty responses remain eligible for immediate recovery attempts.
 
+Optimized local builds also share positive Anime Mapper source records across
+direct, related and canonical lookups, keyed by source URL and MAL ID. Positive,
+unambiguous Kitsu mappings are shared separately by external site and ID. Both
+expire after six hours without extending expiry on a cache hit. Source facts are
+revalidated by the existing matching pipeline; failures and ambiguous/missing
+Kitsu results do not become shared positive identities. See the
+[paired provider-cache comparison](shared-provider-cache-results.md) for results
+and a reproducible benchmark. First-ever empty storage still needs upstream work.
+
 Changing provider precedence or identity validation requires advancing
 `VERIFIED_IDENTITY_SCHEMA` and reviewing the provider lookup schema if necessary.
 

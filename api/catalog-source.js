@@ -50,10 +50,12 @@ import { checkCatalogDeadline, withCatalogDeadline } from "../lib/catalog-deadli
 import { getVerifiedIdentity, setVerifiedIdentity, verifiedIdentityCacheKey } from "../lib/verified-identity-cache.js";
 import { cacheProviderLookup } from "../lib/catalog-provider-cache.js";
 import { prefetchMappingLookup } from "../lib/catalog-prefetch.js";
+import { configureSharedProviderCaching } from "../lib/shared-provider-cache.js";
 
 let optimizedCatalogs = process.env.ANIBLOOM_OPTIMIZED_CATALOGS === "1";
 export function configureCatalogPipeline({ optimized = false } = {}) {
   optimizedCatalogs = optimized;
+  configureSharedProviderCaching(optimized);
 }
 
 export {

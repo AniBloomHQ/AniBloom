@@ -122,6 +122,11 @@ episode mapping regressions before retaining the changes. Neither cache is
 implemented by this checkpoint. Discuss any proposed complete overhaul with the
 owner before implementation.
 
+Update: the recorded caching priority is now implemented **locally**; see the
+[shared provider cache comparison](shared-provider-cache-results.md). The list
+below records the original audit recommendations. Hosted activation and the
+proposed late Kitsu overlap remain separate work.
+
 1. Share bounded, positive Anime Mapper record lookups across cold workers and
    related catalogs using the existing cache adapter. Key by source/version and
    MAL ID, retain provider type and source metadata, and keep failures separate

@@ -108,6 +108,10 @@ compact provider lookup caching, and bounded catalog builds. See the
 [fast local catalog pipeline](docs/fast-local-catalogs.md) for behavior and limits.
 The [identity provider audit](docs/identity-provider-audit.md) records the latest
 matching fixes, live correctness checks, timings and remaining optimization work.
+The [shared provider cache comparison](docs/shared-provider-cache-results.md)
+measures fresh-process rebuilds with the new Anime Mapper and positive Kitsu
+caches. The [workflow cost audit](docs/workflow-cost-audit.md) identifies which
+manual checks contact the hosted addon and how to reduce those requests.
 
 ### Anime title preferences and existing installations
 
