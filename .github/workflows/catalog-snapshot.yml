@@ -15,6 +15,11 @@ on:
         description: 'Exact deployed release commit SHA (for manual capture)'
         required: true
         type: string
+      max_requests:
+        description: 'Maximum HTTP attempts including manifest, pages and retries (1-1000); incomplete captures fail'
+        required: false
+        default: 100
+        type: number
 
 permissions:
   contents: write
@@ -65,21 +70,13 @@ jobs:
       - name: Capture all production catalog pages
         env:
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          MAX_PRODUCTION_REQUESTS: ${{ inputs.max_requests }}
         run: |
           set -euo pipefail
           PRODUCTION_BASE_URL="https://${ADDON_DOMAIN}"
           snapshot_dir="/tmp/catalog-snapshot"
           rm -rf "$snapshot_dir"
           mkdir -p "$snapshot_dir/pages"
-
-          curl_args=(--fail --silent --show-error --location --retry 5 --retry-delay 2 --retry-all-errors)
-          curl "${curl_args[@]}" "$PRODUCTION_BASE_URL/manifest.json" -o "$snapshot_dir/manifest.json"
-
-          # Validate the complete deployed manifest before making any catalog
-          # requests. Release-specific catalog rows are sanitized into a local
-          # TSV; this also supports earlier deployed releases with fewer rows.
-          node scripts/catalog-snapshot-contract.mjs \
-            "$snapshot_dir/manifest.json" "$RELEASE_VERSION" "$snapshot_dir/catalog-contract.tsv"
 
           # Production's shared AniList token bucket refills one token every 3 seconds.
           # Pace catalog requests so this audit does not starve normal addon traffic.
@@ -91,6 +88,7 @@ jobs:
             local http_status=""
 
             while (( attempt <= max_attempts )); do
+              node scripts/production-request-budget.mjs "$snapshot_dir/request-count.txt" "$MAX_PRODUCTION_REQUESTS" || return 1
               if http_status="$(curl --silent --show-error --location \
                 --connect-timeout 10 --max-time 60 \
                 --write-out '%{http_code}' \
@@ -123,6 +121,11 @@ jobs:
               attempt=$((attempt + 1))
             done
           }
+
+          fetch_catalog_page "$PRODUCTION_BASE_URL/manifest.json" "$snapshot_dir/manifest.json" > /dev/null
+          # Validate the manifest before requesting any catalog page.
+          node scripts/catalog-snapshot-contract.mjs \
+            "$snapshot_dir/manifest.json" "$RELEASE_VERSION" "$snapshot_dir/catalog-contract.tsv"
 
           while IFS=: read -r catalog_type catalog; do
             # IDs and types come from the validated manifest, never raw input.
