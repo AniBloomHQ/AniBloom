@@ -4,7 +4,7 @@ import fs from "node:fs";
 
 const read = (path) => fs.readFileSync(new URL(path, import.meta.url), "utf8");
 
-test("main CI uses a scoped GitHub App token for automated PR events", () => {
+test("main CI runs read-only checks without opening version PRs", () => {
   const ci = read("../.github/workflows/ci.yml");
   const escapedExpression = "\\" + "$" + "{{";
 
@@ -21,23 +21,13 @@ test("main CI uses a scoped GitHub App token for automated PR events", () => {
   assert.ok(ci.includes("node-version: 26"));
   assert.ok(ci.includes("actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"));
   assert.ok(ci.includes("actions/setup-node@820762786026740c76f36085b0efc47a31fe5020"));
-  assert.ok(ci.includes("version-automation:\n    needs: test"));
-  assert.ok(ci.includes("permissions:\n      contents: write"));
-  assert.ok(ci.includes("name: Create automation GitHub App token"));
-  assert.ok(ci.includes("uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510"));
-  assert.ok(ci.includes("client-id: ${{ vars.AUTOMATION_APP_CLIENT_ID || secrets.AUTOMATION_APP_CLIENT_ID }}"));
-  assert.ok(ci.includes("private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}"));
-  assert.ok(ci.includes("repositories: AniBloom"));
-  assert.ok(ci.includes("permission-pull-requests: write"));
-  assert.ok(ci.includes("GH_TOKEN: ${{ steps.automation-app-token.outputs.token }}"));
-  assert.ok(ci.includes('git commit -m "chore: bump patch version [skip-version-automation]"'));
-  assert.ok(ci.includes("git add api/version.js package.json package-lock.json README.md"));
-  assert.ok(ci.includes('lock["version"] = next_version'));
-  assert.ok(ci.includes('lock["packages"][""]["version"] = next_version'));
-  assert.ok(ci.includes("gh pr create"));
-  assert.ok(ci.includes("--base main"));
-  assert.ok(!ci.includes("gh workflow run pr-ci.yml"));
-  assert.ok(!ci.includes("git push origin HEAD:main"));
+  assert.ok(ci.includes("persist-credentials: false"));
+  assert.ok(!ci.includes("contents: write"));
+  assert.ok(!ci.includes("version-automation:"));
+  assert.ok(!ci.includes("actions/create-github-app-token"));
+  assert.ok(!ci.includes("secrets."));
+  assert.ok(!ci.includes("gh pr create"));
+  assert.ok(!ci.includes("git push"));
 });
 
 test("pull request CI supports both automatic PR events and explicit dispatch", () => {
@@ -65,7 +55,7 @@ test("release pipeline uses the scoped GitHub App token only for release-state P
   assert.ok(sync.includes("name: Run full CI"));
   assert.ok(!sync.includes("actions: write"), "release pipeline should not retain dispatch-only permission");
   assert.ok(sync.includes("automation/release-state-v$release_version"));
-  assert.ok(sync.includes("[skip-version-automation]"));
+  assert.ok(!sync.includes("[skip-version-automation]"));
   assert.ok(sync.includes("gh pr create"));
   assert.ok(sync.includes("name: Create automation GitHub App token"));
   assert.ok(sync.includes("uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510"));

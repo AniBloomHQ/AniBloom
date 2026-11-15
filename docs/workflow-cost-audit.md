@@ -4,7 +4,17 @@ Update, November 15: the workflow-only safeguards were merged to `main` in
 [PR #573](https://github.com/AniBloomHQ/AniBloom/pull/573), commit
 `e3a9a30d4d1f18e066d9082c7c640dfc8db787e8`. Main tests, secret scanning and
 both CodeQL analyses passed. Release and version-automation jobs were skipped.
-The runtime cache implementation remains local.
+The runtime cache implementation was subsequently merged in PR #574.
+
+Update, November 15 (version automation): retired the per-runtime-merge patch
+PR generator. PRs #572, #575 and #577 each proposed the same `2.16.0 → 2.16.1`
+bump while the recorded next release remained `2.16.0`. Separate per-SHA
+branches accumulated duplicate metadata PRs and redundant PR checks. Versions
+are now prepared deliberately for an approved release baseline; regular main
+CI has read-only permissions and no GitHub App credential access. Release
+metadata validation, security scans, release-state PRs and explicit deployment
+gates remain in place. This cleanup does not change the current version or
+invoke Vercel. Historical observations below describe the earlier workflow.
 
 The merge of PR #571 passed main CI, the full Git-history secret scan and
 CodeQL. The controlled release job was **skipped**, so that merge did not run
@@ -21,7 +31,7 @@ the runtime changes.
 | Workflow | Trigger | Calls hosted AniBloom/Vercel? |
 | --- | --- | --- |
 | `pr-ci.yml` | PR/manual | No production smoke or deployment; Node tests and localhost Chrome checks |
-| `ci.yml` | Main push | No production smoke or deployment; tests and version metadata automation |
+| `ci.yml` | Main push | No production smoke or deployment; tests and localhost browser checks |
 | `secret-history-scan.yml` | PR/main/manual | GitHub/Gitleaks downloads and local Git scanning, no addon calls |
 | CodeQL | GitHub code scanning | Static analysis, no addon smoke or deployment |
 | `catalog-diff.yml` | Manual | Reads stored snapshot branches and compares files locally |
@@ -87,8 +97,8 @@ partial captures count as successful.
    compare the stored artifact/branch instead of repeatedly crawling Vercel.
 6. **Optimize GitHub minutes separately.** npm download caching could reduce
    repeated installs; keeping PR/main checks protects integration coverage.
-   Version-only PRs still run full checks today. Any narrower checks must retain
-   the required status names and validate version metadata; disabling code or
+   The redundant per-merge version PR generator has now been removed. Deliberate
+   release-metadata PRs still run the normal required checks; disabling code or
    security checks would not solve Vercel CPU use.
 
 No production requests, workflow dispatches, hosted account/project configuration
