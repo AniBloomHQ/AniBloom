@@ -166,13 +166,20 @@ push to `main`. Its daily schedule was removed because it did not execute
 Gitleaks; the manual `workflow_dispatch` remains available and now runs the
 full redacted history scan. This does not replace PR and push protection.
 
-Main-branch CI still installs dependencies, audits production packages, and
-runs the complete test suite. Only after the main CI job passes, version
-automation inspects the committed paths. Documentation, tests, workflow, and
-release-state-only changes do not open an automatic patch-version PR. Runtime
-or unknown changes are treated conservatively. When metadata is generated, the
-automation validates the actual release metadata and package-lock version,
-without reinstalling dependencies or rerunning all tests in a second job.
+Main-branch CI installs dependencies, audits production packages, and runs the
+complete test suite and localhost browser checks with read-only repository
+permissions. It does not generate version PRs. The former per-runtime-merge
+patch automation was removed because several merges proposed the same bump,
+and that patch could diverge from the recorded next release baseline.
+
+Prepare version metadata once for an intentional release: use the approved
+`nextReleaseVersion` in `ops/release-state.json`, synchronize `api/version.js`,
+`package.json`, both root version entries in `package-lock.json`, and the README
+version badge/development line. Run `node scripts/release-integrity.mjs` and the
+normal PR checks. Merging metadata does not authorize deployment. The separate
+controlled release still requires an explicit release request, validates the
+exact target against the current release state, and records successful releases
+through its existing release-state PR.
 
 During production releases, deployment readiness polling checks only the
 manifest until it advertises the expected version; representative series and

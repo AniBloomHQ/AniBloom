@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-import { shouldCreateVersionPR } from "../scripts/version-automation-scope.mjs";
 import { validatePackageLockVersion } from "../scripts/release-integrity.mjs";
 import { retryTransientProductionFetch, isTransientProductionStatus } from "../scripts/retry-production-fetch.mjs";
 
@@ -29,31 +28,18 @@ test("standalone catalog diff is manual-only while snapshot capture still compar
   assert.ok(snapshot.includes("node scripts/compare-catalog-snapshots.js"));
 });
 
-test("version automation runs only after green full CI and validates generated metadata without rerunning all tests", () => {
-  const ci = read("../.github/workflows/ci.yml");
-  const versionJob = ci.slice(ci.indexOf("  version-automation:"));
-  assert.ok(versionJob.includes("needs: test"));
-  assert.ok(ci.includes("name: Run tests\n        run: npm test"));
-  assert.ok(versionJob.includes("node scripts/version-automation-scope.mjs"));
-  assert.ok(versionJob.includes("node scripts/release-integrity.mjs"));
-  assert.ok(versionJob.includes("steps.scope.outputs.update == 'true'"));
-  assert.ok(!versionJob.includes("npm test"));
-  assert.ok(!versionJob.includes("npm audit"));
-  assert.ok(!versionJob.includes("npm ci"));
+test("automatic patch PR generation stays retired while release metadata validation remains", () => {
+  const workflows = new URL("../.github/workflows/", import.meta.url);
+  for (const name of fs.readdirSync(workflows).filter((name) => /\.ya?ml$/.test(name))) {
+    const workflow = fs.readFileSync(new URL(name, workflows), "utf8");
+    assert.ok(!workflow.includes("automation/version-bump-"), `${name} must not create per-commit version branches`);
+    assert.ok(!workflow.includes("Bump patch version and sync metadata"), `${name} must not increment versions on ordinary merges`);
+  }
+  assert.ok(!fs.existsSync(new URL("../scripts/version-automation-scope.mjs", import.meta.url)));
+  assert.ok(read("../.github/workflows/sync-version.yml").includes("node scripts/release-integrity.mjs"));
 });
 
-test("version-bump scope ignores docs, workflow and test-only pushes but fails safe for runtime changes", () => {
-  assert.equal(shouldCreateVersionPR(["README.md", "docs/guide.md", ".github/workflows/pr-ci.yml", "test/ci-workflow-architecture.test.js"]), false);
-  assert.equal(shouldCreateVersionPR(["ops/release-state.json", "LICENSE", ".gitignore"]), false);
-  assert.equal(shouldCreateVersionPR(["api/catalog-source.js", "docs/guide.md"]), true);
-  assert.equal(shouldCreateVersionPR(["api/version.js"]), true);
-  assert.equal(shouldCreateVersionPR(["package-lock.json"]), true);
-  assert.equal(shouldCreateVersionPR([".env"]), true);
-  assert.equal(shouldCreateVersionPR([]), true);
-  assert.equal(shouldCreateVersionPR(null), true);
-});
-
-test("package lock version metadata is checked before an automated version PR", () => {
+test("package lock version metadata stays checked for intentional releases", () => {
   assert.doesNotThrow(() => validatePackageLockVersion("2.16.1", { version: "2.16.1", packages: { "": { version: "2.16.1" } } }));
   assert.throws(() => validatePackageLockVersion("2.16.1", { version: "2.16.0", packages: { "": { version: "2.16.1" } } }), /lock/i);
   assert.throws(() => validatePackageLockVersion("2.16.1", { version: "2.16.1", packages: { "": { version: "2.16.0" } } }), /lock/i);

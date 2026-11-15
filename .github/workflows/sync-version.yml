@@ -1,4 +1,4 @@
-name: CI, automatic patch versioning, and controlled Vercel release
+name: Controlled Vercel release
 
 env:
   ADDON_DOMAIN: anibloom.vercel.app
@@ -467,7 +467,7 @@ jobs:
           readme_path.write_text(readme)
           PY
           git add ops/release-state.json README.md
-          git commit -m "chore: record $tag production release [skip-release-pipeline] [skip-version-automation]"
+          git commit -m "chore: record $tag production release [skip-release-pipeline]"
           branch="automation/release-state-v$release_version"
           git switch -c "$branch"
           git push --force origin "HEAD:refs/heads/$branch"
@@ -480,6 +480,6 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --base main \
               --head "$branch" \
-              --title "chore: record $tag production release [skip-release-pipeline] [skip-version-automation]" \
+              --title "chore: record $tag production release [skip-release-pipeline]" \
               --body "Records the production deployment and updates release state after the controlled release pipeline's smoke tests passed. This PR does not trigger a deployment; merge only after pull-request CI passes."
           fi
