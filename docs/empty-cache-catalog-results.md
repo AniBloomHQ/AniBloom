@@ -88,3 +88,37 @@ and `--root` for an isolated baseline checkout. Use different empty files for
 each variant; the saved-cache comparison in
 [shared-provider-cache-results.md](shared-provider-cache-results.md) measures a
 different scenario.
+
+## Follow-up measurement on November 21, 2026
+
+IMDb searches for rows already holding a non-TMDB identity now run alongside
+the remaining mapping fallbacks. Their results still enter the pipeline at the
+original IMDb stage. The final ownership retry can reuse an explicit empty
+IMDb response from the recovery pass for the same URL on the same page.
+Transport errors, malformed responses and later pages still get a fresh lookup.
+
+On pages with at least ten rows, Kitsu starts before secondary lookup when
+only one to four rows remain unmatched. A later verified provider match can
+still win, and a changed MAL or AniList preference gets its own lookup. This
+can issue an early Kitsu request for a title that a later provider resolves.
+
+The baseline in this comparison includes the November 15 optimizations above.
+Every sample used a fresh Node process and unused cache file, with zero verified
+identity cache hits. Three alternating pairs rebuilt Current Season as of
+November 21. Each result contained the same 50 ordered IDs and full metadata.
+
+| Sample | Before | After | Fetch attempts before → after |
+| --- | ---: | ---: | ---: |
+| 1 | 4,050 ms | 3,432 ms | 155 → 153 |
+| 2 | 4,369 ms | 3,301 ms | 155 → 153 |
+| 3 | 3,857 ms | 3,280 ms | 155 → 153 |
+| Median | **4,050 ms** | **3,301 ms** | **155 → 153** |
+
+The observed median fell 18.5%. IMDb accounted for both saved fetch attempts
+(58 → 56). Median time waiting at the main IMDb stage fell from 406 to 168 ms,
+and the final Kitsu wait fell from 683 to 318 ms. Kitsu still made three calls.
+Anime Mapper used 71 CDN requests per sample, the largest request count. AniList
+used one request and took about 1.28 seconds at the optimized median. Five
+AnimeAPI requests received HTTP 429 in each paired sample. The comparison
+covers the local setup without TMDB credentials. Provider latency varied
+substantially during profiling, so these timings are observations for this page.

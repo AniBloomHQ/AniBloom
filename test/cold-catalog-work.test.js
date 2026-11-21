@@ -119,3 +119,62 @@ test("failed and empty early lookups remain eligible for the normal late retry",
     assert.equal((await lookup.resolve(targets)).get(1), "7001"); assert.equal(calls, 2);
   }
 });
+
+test("early IMDb searches overlap mapping fallbacks and still search newly resolved rows", { timeout: 2000 }, async () => {
+  const rows = Array.from({ length: 10 }, (_, index) => ({
+    id: 9200 + index, format: "TV", title: { english: `Example ${index}` },
+  }));
+  const dependencies = options();
+  let markStarted = () => {};
+  let imdbStarted = Promise.resolve();
+  const searched = [];
+  const records = (ids, source) => new Map(ids.map(id => [id, [{
+    source, anilistId: id, type: "TV", imdbIds: [`tt${id}`],
+  }]]));
+  dependencies.resolveMappings = async ids => records(ids.filter(id => id < 9209), "animeapi");
+  dependencies.resolveCanonicalSeriesMappings = empty;
+  dependencies.resolveAnimapMappings = async ids => {
+    await imdbStarted;
+    return records(ids, "animeapi");
+  };
+  dependencies.resolveImdbMappings = async requested => {
+    searched.push(...requested.map(row => row.id));
+    markStarted();
+    return records(requested.map(row => row.id), "imdb-search");
+  };
+  try {
+    configureCatalogPipeline({ optimized: false });
+    const before = await canonicalizeCatalogPage(structuredClone(rows), dependencies);
+    imdbStarted = new Promise(resolve => { markStarted = resolve; });
+    searched.length = 0;
+    configureCatalogPipeline({ optimized: true });
+    const after = await canonicalizeCatalogPage(structuredClone(rows), dependencies);
+    assert.deepEqual(after, before);
+    assert.deepEqual(searched, rows.map(row => row.id));
+    assert.deepEqual(after.map(meta => meta.id), rows.map(row => `tt${row.id}`));
+  } finally { configureCatalogPipeline(); }
+});
+
+test("Kitsu can start before secondary lookup while the stronger match still wins", { timeout: 2000 }, async () => {
+  const rows = Array.from({ length: 10 }, (_, index) => ({
+    id: 9400 + index, idMal: 9500 + index, format: "TV", title: { english: `Example ${index}` },
+  }));
+  const dependencies = options();
+  const map = (ids) => new Map(ids.map(id => [id, [{ source: "animeapi", anilistId: id, type: "TV", imdbIds: [`tt${id}`] }]]));
+  let markStarted;
+  const started = new Promise(resolve => { markStarted = resolve; });
+  dependencies.resolveMappings = async ids => map(ids.filter(id => id < 9409));
+  dependencies.resolveCanonicalSeriesMappings = empty;
+  dependencies.enableKitsuFallback = true;
+  dependencies.resolveKitsuMappings = async targets => {
+    assert.deepEqual(targets.map(row => row.id), [9409]);
+    markStarted();
+    return new Map([[9409, "7001"]]);
+  };
+  dependencies.resolveSecondaryMappings = async ids => { await started; return map(ids); };
+  try {
+    configureCatalogPipeline({ optimized: true });
+    const result = await canonicalizeCatalogPage(rows, dependencies);
+    assert.deepEqual(result.map(meta => meta.id), rows.map(row => `tt${row.id}`));
+  } finally { configureCatalogPipeline(); }
+});
