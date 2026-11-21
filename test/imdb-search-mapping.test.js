@@ -37,6 +37,26 @@ test("IMDb shares empty suggestions within one resolver call but retries on the 
   assert.ok([...calls.values()].every(count => count === 2));
 });
 
+test("IMDb recovery reuses only confirmed empties for the same URL and the same catalog page", async () => {
+  clearImdbSearchCache();
+  const rows = [{ id: 1, format: "TV", title: { english: "Confirmed Empty" } },
+    { id: 2, format: "TV", title: { english: "Transient Failure" } }];
+  const calls = new Map();
+  const fetchImpl = async url => {
+    calls.set(url, (calls.get(url) || 0) + 1);
+    return url.includes("Transient") ? new Response("{}", { status: 404 }) : Response.json({ d: [] });
+  };
+  const emptySuggestionUrls = new Set();
+  const options = { fetchImpl, emptySuggestionUrls };
+  assert.equal((await resolveAniListMappingsByImdbSearch(rows, options)).size, 0);
+  assert.equal((await resolveAniListMappingsByImdbSearch(rows, options)).size, 0);
+  assert.equal(calls.size, 2);
+  assert.ok([...calls].every(([url, count]) => count === (url.includes("Transient") ? 2 : 1)));
+
+  await resolveAniListMappingsByImdbSearch([rows[0]], { ...options, emptySuggestionUrls: new Set() });
+  assert.ok([...calls].every(([, count]) => count === 2));
+});
+
 test("IMDb does not accept suggestions returned with a failed HTTP status", async () => {
   clearImdbSearchCache();
   const result = await resolveAniListMappingsByImdbSearch([
