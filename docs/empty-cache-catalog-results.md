@@ -122,3 +122,30 @@ used one request and took about 1.28 seconds at the optimized median. Five
 AnimeAPI requests received HTTP 429 in each paired sample. The comparison
 covers the local setup without TMDB credentials. Provider latency varied
 substantially during profiling, so these timings are observations for this page.
+
+## Anime Mapper request audit
+
+Anime Mapper still provides direct mappings and canonical series records from
+its individual MAL files. Its franchise ownership reads run only when the
+existing validator would reject a TVDB or TMDB candidate if that exact ID
+belonged to a related title. IMDb ownership from AniList, ARM and Fribb still
+applies before canonical resolution. The historical provider fallback retains
+its ownership checks. Canonical traversal starts earlier for titles that
+always need it due to an explicit parent or prequel.
+
+The baseline includes the November 21 IMDb and Kitsu changes. Each test
+started a new Node process with an unused disk cache and zero verified
+identity hits. The date and catalog were fixed within alternating pairs.
+
+| Catalog | Samples before → after | Median before → after | Anime Mapper fetches | Total fetches |
+| --- | --- | ---: | ---: | ---: |
+| Current Season | 3,522 → 3,489 ms / 3,192 → 3,448 ms / 3,220 → 3,393 ms | 3,220 → 3,448 ms | 71 → 65 | 153 → 147 |
+| Top Season | 5,813 → 3,368 ms / 2,543 → 2,591 ms | 4,178 → 2,980 ms | 75 → 69 | 124 → 118 |
+
+Every pair saved six fetches and returned identical ordered IDs and full
+metadata for all 50 titles. Current Season's median was 228 ms higher, with
+more time waiting on Kitsu in these samples. Top Season had only two pairs,
+including one slow baseline. The request reduction was repeatable, while a
+latency improvement was not established. Regression tests separately cover a
+real TVDB collision, an ID that already has ownership evidence, corroborated
+current-title evidence and an explicit canonical root.

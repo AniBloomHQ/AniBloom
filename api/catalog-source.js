@@ -29,7 +29,7 @@ import {
 } from "../lib/imdb-search-mapping.js";
 import { PRODUCTION_IDENTITY_CACHE, PRODUCTION_IDENTITY_CACHE_VERSION } from "../lib/production-identity-cache.js";
 import { resolveAniListMappingsFromAnimeApiTsv } from "../lib/animeapi-tsv-mapping.js";
-import { getProviderCandidates, hasStrongDirectProviderEvidence, selectProviderIdentity } from "../lib/provider-identity.js";
+import { getProviderCandidates, hasStrongDirectProviderEvidence, selectProviderIdentity, validateCandidate } from "../lib/provider-identity.js";
 import {
   resolveAniListMappingsSecondary,
   resolveAniListMappingsByMalIds,
@@ -440,6 +440,16 @@ async function resolveMappingsForRowsUncached(
   }
   let mappings = new Map();
   let loadRelatedProviderIds = resolveRelatedProviderIds;
+  let loadCanonicalSeriesMappings = resolveCanonicalSeriesMappings;
+  // Anime Mapper ownership contributes only TVDB/TMDB IDs. The canonical
+  // stage consults ownership only for IMDb, so defer these reads until all
+  // candidates (including canonical roots) are available.
+  const deferMapperOwnership = optimizedCatalogs
+    && resolveAnimeMapperRelatedProviderIds === resolveAniListRelatedProviderIdsByAnimeMapper;
+  const ownershipResolvers = {
+    resolveMappings, resolveFribbMappings, resolveExternalMappings,
+    resolveAnimeMapperRelatedProviderIds: deferMapperOwnership ? null : resolveAnimeMapperRelatedProviderIds,
+  };
 
   const armStart = diagnostics ? performance.now() : 0;
   try {
@@ -727,16 +737,19 @@ async function resolveMappingsForRowsUncached(
   }
 
   if (optimizedCatalogs && rows.length >= 10) {
-    // Overlap ownership reads with IMDb/recovery. Start after the direct
-    // Anime Mapper stage so its CDN concurrency does not stack with these
-    // relation lookups; apply protection at its original stage below.
+    // Overlap bulk ownership reads with IMDb/recovery.
     loadRelatedProviderIds = prefetchMappingLookup(
-      targets => resolveRelatedProviderIds(targets, {
-        resolveMappings, resolveFribbMappings, resolveExternalMappings,
-        resolveAnimeMapperMappings, resolveAnimeMapperRelatedProviderIds,
-      }),
+      targets => resolveRelatedProviderIds(targets, ownershipResolvers),
       rows.filter(hasExplicitProviderRelations),
     );
+    if (deferMapperOwnership && resolveCanonicalSeriesMappings === resolveAniListCanonicalSeriesByAnimeMapper) {
+      // Explicit parent/prequel rows always reach canonical traversal. Start
+      // only those reads early to retain overlap after pruning ownership.
+      const targets = rows.filter(row => row.format !== "MOVIE" && hasCanonicalSeriesRelation(row));
+      if (targets.length) {
+        loadCanonicalSeriesMappings = prefetchMappingLookup(resolveCanonicalSeriesMappings, targets, { retryOnError: true });
+      }
+    }
   }
 
   unresolvedRows = rows.filter((row) => {
@@ -889,13 +902,9 @@ async function resolveMappingsForRowsUncached(
   }
 
   const protectionStart = diagnostics ? performance.now() : 0;
-  await applyRelatedProviderProtection(rows, mappings, {
+  const protectedRows = await applyRelatedProviderProtection(rows, mappings, {
     loadRelatedProviderIds,
-    resolveMappings,
-    resolveFribbMappings,
-    resolveExternalMappings,
-    resolveAnimeMapperMappings,
-    resolveAnimeMapperRelatedProviderIds,
+    ...ownershipResolvers,
   });
   if (diagnostics) diagnostics.relatedProtection = performance.now() - protectionStart;
 
@@ -911,7 +920,7 @@ async function resolveMappingsForRowsUncached(
     // independently verified, while skipping identities it cannot change.
     const canonicalCandidates = rows.filter((row) => row.format !== "MOVIE" && shouldResolveCanonicalSeries(row, mappings));
     const canonicalRoots = canonicalCandidates.length
-      ? await resolveCanonicalSeriesMappings(canonicalCandidates)
+      ? await loadCanonicalSeriesMappings(canonicalCandidates)
       : new Map();
     const canonicalRows = [];
     const canonicalByCurrentId = new Map();
@@ -1007,6 +1016,25 @@ async function resolveMappingsForRowsUncached(
     console.error("[identity] canonical series root resolution failed; preserving current identity", error);
   }
 
+  if (deferMapperOwnership && protectedRows.size) {
+    const targets = rows.filter(row => protectedRows.has(Number(row.id))
+      && needsAnimeMapperOwnership(row, mappings.get(Number(row.id)), allowProductionIdentityCache));
+    if (diagnostics) diagnostics.mapperOwnershipRows = targets.length;
+    if (targets.length) {
+      const stageStart = diagnostics ? performance.now() : 0;
+      try {
+        const found = await resolveAnimeMapperRelatedProviderIds(targets);
+        for (const row of targets) {
+          const ids = found.get(Number(row.id));
+          if (ids?.length) setRelatedProviderIds(row, mappings, [...new Set([...row.relatedProviderIds, ...ids])]);
+        }
+      } catch (error) {
+        console.error("[identity] related Anime Mapper protection lookup failed", error);
+      }
+      if (diagnostics) diagnostics.mapperOwnership = performance.now() - stageStart;
+    }
+  }
+
   // Relation protection can invalidate an identity that was valid before
   // related provider ownership was known. Re-run IMDb verification for only
   // those rows so a corroborated current-title identity can replace a
@@ -1088,9 +1116,7 @@ async function applyRelatedProviderProtection(rows, mappings, dependencies) {
       { ...row, anilistId: Number(row.id) },
       mappings.get(Number(row.id)) || [],
     );
-    return candidates.some((candidate) => !candidate.evidence?.some(
-      (entry) => false,
-    ));
+    return candidates.length > 0;
   });
 
   if (!relationProtectedRows.length) return new Map();
@@ -1098,25 +1124,41 @@ async function applyRelatedProviderProtection(rows, mappings, dependencies) {
   try {
     const protectedIds = await (dependencies.loadRelatedProviderIds || resolveRelatedProviderIds)(relationProtectedRows, dependencies);
     for (const row of relationProtectedRows) {
-      const relatedProviderIds = protectedIds.get(Number(row.id)) || [];
-      row.relatedProviderIds = relatedProviderIds;
+      setRelatedProviderIds(row, mappings, protectedIds.get(Number(row.id)) || []);
       row.relatedProviderTitles = getRelatedProviderTitles(row);
-      const records = mappings.get(Number(row.id)) || [];
-      if (relatedProviderIds.length && records.length) {
-        mappings.set(Number(row.id), records.map((record) => ({
-          ...record,
-          relatedProviderIds: [...new Set([
-            ...(Array.isArray(record?.relatedProviderIds) ? record.relatedProviderIds : []),
-            ...relatedProviderIds,
-          ])],
-        })));
-      }
     }
     return protectedIds;
   } catch (error) {
     console.error("[identity] related provider protection failed; preserving existing fallbacks", error);
     return new Map();
   }
+}
+
+function setRelatedProviderIds(row, mappings, relatedProviderIds) {
+  row.relatedProviderIds = relatedProviderIds;
+  const records = mappings.get(Number(row.id)) || [];
+  if (!relatedProviderIds.length || !records.length) return;
+  mappings.set(Number(row.id), records.map(record => ({
+    ...record,
+    relatedProviderIds: [...new Set([
+      ...(Array.isArray(record?.relatedProviderIds) ? record.relatedProviderIds : []),
+      ...relatedProviderIds,
+    ])],
+  })));
+}
+
+function needsAnimeMapperOwnership(row, records, allowProductionIdentityCache) {
+  const media = { ...row, anilistId: Number(row.id) };
+  const historicalProvider = allowProductionIdentityCache && PRODUCTION_IDENTITY_CACHE[String(row.id)]?.provider;
+  // Keep ownership for historical fallbacks that can join selection later.
+  if (historicalProvider === "tmdb" || historicalProvider === "tvdb") return true;
+  return getProviderCandidates(media, records).some(candidate => {
+    if (candidate.provider === "imdb" || !validateCandidate(media, candidate).valid) return false;
+    // Adding ownership can only reject this exact provider ID. Use the same
+    // validator as publication, including its season and corroboration guards.
+    const withCollision = { ...candidate, relatedProviderIds: [...candidate.relatedProviderIds, candidate.stremioId] };
+    return !validateCandidate(media, withCollision).valid;
+  });
 }
 
 function getRelatedProviderTitles(row) {
@@ -1175,7 +1217,6 @@ async function resolveRelatedProviderIds(rows, {
   resolveMappings,
   resolveFribbMappings,
   resolveExternalMappings,
-  resolveAnimeMapperMappings,
   resolveAnimeMapperRelatedProviderIds,
 }) {
   const relationIds = new Set();
