@@ -149,3 +149,77 @@ including one slow baseline. The request reduction was repeatable, while a
 latency improvement was not established. Regression tests separately cover a
 real TVDB collision, an ID that already has ownership evidence, corroborated
 current-title evidence and an explicit canonical root.
+
+## Cold identity-stage profile and overlap trial — November 23, 2026
+
+Three fresh-process, empty-cache builds of Current Season page one returned the
+same 50 ordered IDs and byte-for-byte identical published metadata. Each made
+187 upstream fetches, including one AniList query. Median timings were 3,924 ms
+for the full build, 2,667 ms for identity resolution, 682 ms for ARM, and 706
+ms for canonical-series resolution. The benchmark now splits the AniList
+request into header wait, body read/decompression and JSON parsing; those
+measurements showed body transfer, not parsing, was its variable component.
+
+A trial started canonical-series lookups early for every row that was eligible
+at that stage, while retaining the existing final eligibility and merge rules.
+Across three more fresh empty-cache builds, outputs remained byte-for-byte
+identical, but the speculative work added nine Anime Mapper CDN requests on
+every run (71 → 80; total fetches 187 → 196). Median full-build time changed
+from 3,924 to 4,034 ms, median identity time from 2,667 to 2,791 ms, and median
+canonical-stage time from 706 to 862 ms. Provider latency varied, but the
+repeatable request increase and absence of a timing improvement made this a
+poor tradeoff. The broader prefetch was discarded; early canonical work remains
+limited to explicit parent/prequel rows that will reach the canonical stage.
+
+The same audit found that ARM's two calls are distinct batches: 50 current-page
+AniList IDs followed by 31 related-title IDs used for provider ownership
+protection. Starting the related batch immediately after the first batch was
+also tested in five alternating baseline/candidate pairs. It kept the 187 total
+request count and exact 50-title metadata, but full-build medians were 3,461 ms
+before and 3,455 ms after; identity medians were 2,163 ms and 2,188 ms. There
+was no reliable latency improvement, so the earlier start was discarded. The
+ARM client deliberately retries successful empty results on later calls; a
+request merge that suppresses that retry could hide a transient mapping and was
+not retained.
+
+## Verified-identity seed prototype — November 23, 2026
+
+The existing verified-identity records were exported from one cold build,
+without provider-mapping or prepared-catalog entries, then loaded into otherwise
+empty cache files for fresh processes. The snapshot contained 29 positive,
+validated identity records for this 50-title page (47,827 bytes). All entries
+were still inside the existing six-hour freshness window. The AniList page was
+fetched normally; the current evidence fingerprint and validator still ran, and
+the live provider pipeline handled the other 21 rows.
+
+| Measurement | Empty cache, median (3 runs) | Verified seed, median (3 runs) |
+| --- | ---: | ---: |
+| Full catalog | 3,924 ms | 3,559 ms |
+| Identity stage | 2,667 ms | 2,134 ms |
+| Verified identity hits | 0 | 29 |
+| Upstream fetches | 187 | 121 |
+
+The seed reduced fetches by 35% in every sample. Anime Mapper CDN requests fell
+71 → 45 and IMDb requests 74 → 40; AniList remained one request. All three
+seeded runs returned the same 50 ordered IDs and byte-for-byte identical full
+metadata as the empty-cache runs. The median elapsed difference was 9% in this
+small live sample; provider latency varied, so the repeatable request reduction
+is stronger evidence than the timing change.
+
+This proves that shipping or preloading recent verified records can reduce cold
+provider work while retaining exact row evidence and live fallback for misses.
+It is not yet a production-ready offline index: the prototype reuses the local
+cache format, and records expire after six hours. Before integrating an index,
+choose its refresh/freshness policy. The safest matching-preserving policy is
+to keep the six-hour limit and refresh the snapshot at least that often. An
+older or schema-mismatched index should be ignored and use live resolution.
+The prototype artifact stayed in `/tmp`; no production data or runtime change
+was made.
+
+Recommended integration boundary: load only positive verified records, retain
+the existing evidence-derived cache key and schema check, and treat expired,
+unknown-schema or missing entries as live-resolution misses. Do not include
+prepared catalog pages, provider misses or unverified fallbacks in the index.
+Keeping a continuously useful six-hour index requires a refresh producer; no
+such producer is currently configured. That refresh mechanism and its owner
+need agreement before production integration.

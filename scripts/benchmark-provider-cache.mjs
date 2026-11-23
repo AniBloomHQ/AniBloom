@@ -32,13 +32,63 @@ const network = {};
 globalThis.fetch = async (input, options) => {
   const host = new URL(typeof input === "string" || input instanceof URL ? input : input.url).hostname;
   if (host === "anibloom.vercel.app") throw new Error("Hosted AniBloom requests are forbidden in this local benchmark");
-  const record = network[host] ||= { requests: 0, failures: 0 };
+  const record = network[host] ||= {
+    requests: 0, failures: 0, responseBytes: 0, headersMs: 0,
+    bodyMs: 0, jsonParseMs: 0, encodedBytes: null,
+    contentEncoding: null, transferEncoding: null, requestBatchSizes: [],
+  };
   record.requests++;
+  if (host === "arm.haglund.dev") {
+    try {
+      const requestRows = JSON.parse(String(options?.body || "null"));
+      record.requestBatchSizes.push(Array.isArray(requestRows) ? requestRows.length : null);
+    } catch { record.requestBatchSizes.push(null); }
+  }
+  const requestStarted = performance.now();
+  let response;
   try {
-    const response = await originalFetch(input, options);
-    if (!response.ok) record.failures++;
-    return response;
-  } catch (error) { record.failures++; throw error; }
+    response = await originalFetch(input, options);
+  } catch (error) {
+    record.headersMs += performance.now() - requestStarted;
+    record.failures++;
+    throw error;
+  }
+  record.headersMs += performance.now() - requestStarted;
+  if (!response.ok) record.failures++;
+  if (host === "graphql.anilist.co") {
+    const contentLength = response.headers.get("content-length");
+    const encodedBytes = contentLength == null ? NaN : Number(contentLength);
+    if (Number.isFinite(encodedBytes) && encodedBytes >= 0) {
+      record.encodedBytes = (record.encodedBytes || 0) + encodedBytes;
+    }
+    record.contentEncoding = response.headers.get("content-encoding");
+    record.transferEncoding = response.headers.get("transfer-encoding");
+    // Split body transfer/decompression from JSON parsing while consuming the
+    // response exactly once, through the same Response.json() call as normal.
+    response.json = async () => {
+      const bodyStarted = performance.now();
+      let body;
+      try {
+        body = await response.text();
+      } finally {
+        record.bodyMs += performance.now() - bodyStarted;
+      }
+      record.responseBytes += Buffer.byteLength(body);
+      const parseStarted = performance.now();
+      try {
+        return JSON.parse(body);
+      } finally {
+        record.jsonParseMs += performance.now() - parseStarted;
+      }
+    };
+  } else {
+    // Count decoded body bytes for other providers without consuming the body
+    // used by their resolver.
+    try {
+      record.responseBytes += await response.clone().arrayBuffer().then(body => body.byteLength);
+    } catch { /* Instrumentation must not affect catalog resolution. */ }
+  }
+  return response;
 };
 const diagnostics = {}, started = performance.now(), cpu = process.cpuUsage();
 try {
