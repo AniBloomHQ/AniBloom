@@ -221,8 +221,9 @@ export function recordRollingCatalogDiagnostics(target, counts = {}) {
   return target;
 }
 
-export default {
-  async fetch(request) {
+export default { fetch: fetchCatalog };
+
+export async function fetchCatalog(request, { titlePreference = "english" } = {}) {
   // Use Vercel's Web-standard Request interface to avoid the legacy
   // IncomingMessage adapter and its deprecated URL parsing path.
   const url = new URL(request.url);
@@ -231,7 +232,7 @@ export default {
   let offset = prefixed ? 1 : 0;
   while (["extended", "ranked", "betterposters", "postersplus"].includes(parts[offset])) offset++;
   const queryParams = Object.fromEntries(url.searchParams.entries());
-  const titlePreference = normalizeTitlePreference(prefixed ? parts[0] : queryParams.titleMode);
+  const titleStyle = normalizeTitlePreference(titlePreference);
   const rawExtraPath = queryParams.extra ?? parts.slice(offset + 3).join("/");
   const pathExtra = parseCatalogExtraPath(rawExtraPath);
   // Fixed artwork manifest prefixes allow Nuvio clients without arbitrary
@@ -273,7 +274,7 @@ export default {
       return send({ error: options.error, code: options.code }, 400);
     }
     const { skip, search, genre = "", artwork = "" } = options;
-    const project = (metas) => projectCatalogPosters(projectCatalogMetas(metas, titlePreference), artwork, { titlePreference });
+    const project = (metas) => projectCatalogPosters(projectCatalogMetas(metas, titleStyle), artwork, { titlePreference: "english" });
     const permit = await acquireCatalogRequestPermit(request);
     if (!permit.allowed) {
       return send(
@@ -332,8 +333,7 @@ export default {
   }
 
   return send({ error: "Not found" }, 404);
-  },
-};
+}
 
 export function filterAiringRowsBySearch(rows, search) {
   const normalizedRows = Array.isArray(rows) ? rows : [];

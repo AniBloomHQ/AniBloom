@@ -51,11 +51,7 @@ The six seasonal series/movie catalogs advertise a fixed selection of optional g
 
 ### BetterPosters catalog artwork (automatic; pending deployment)
 
-**BetterPosters is the default** for catalog titles with a resolved compatible poster ID; no setup, account, password, extra addon, or artwork dropdown is needed. The ordinary `/manifest.json` installation and its Romaji/Native language variants use this behavior:
-
-- **English** (`/manifest.json`) and **Romaji** (`/romaji/manifest.json`) request English poster text.
-- **Native** (`/native/manifest.json`) requests Japanese poster text (`lang=ja`). Native catalog titles can be in their original writing system; the poster language is deliberately Japanese.
-- Titles without a compatible poster ID keep their original high-resolution AniList cover. Catalog artwork is separate from metadata-provider details. If a BetterPosters image URL fails later, recovery depends on the Nuvio client; AniBloom cannot verify the remote image without extra server traffic.
+**BetterPosters is the default** for catalog titles with a resolved compatible poster ID. The default install and saved profiles use English poster labels. Titles without a compatible poster ID keep their original high-resolution AniList cover. Catalog artwork is separate from metadata-provider details. If a BetterPosters image URL fails later, recovery depends on the Nuvio client; AniBloom cannot verify the remote image without extra server traffic.
 
 The visual options follow the BetterPosters defaults: trend tags **on**, genre **on**, rating **on** (average source), quality tags **off**, and age-rating tags **off**. More URL variants are supported internally but not exposed as public install configuration. Images are fetched directly by Nuvio, without a Vercel image proxy or new server-side API calls.
 
@@ -75,8 +71,8 @@ For manual installation, use the same manifest URL.
 ### Guided setup and website previews (development)
 
 The homepage's **installation guide** offers Web, Mobile and TV steps, a
-**Copy manifest URL** button, and a QR code for the selected English/Romaji/Native
-manifest. The QR code is generated locally in the browser, without an external
+**Copy manifest URL** button, and a QR code for the default English manifest.
+The QR code is generated locally in the browser, without an external
 QR service. If clipboard access is denied, the page selects the URL for manual
 copying. The guide also explains duplicate installations, metadata providers,
 and how to enable the ninth Top Anime row.
@@ -84,7 +80,7 @@ and how to enable the ninth Top Anime row.
 Select any catalog card to open a poster-and-title preview. A preview uses a
 prepared catalog when available; otherwise it requests one AniList discovery
 page and skips provider-ID mapping. It displays up to 12 titles and reuses successful
-responses in the current page for 60 seconds, separately for each title language.
+responses in the current page for 60 seconds.
 There is no catalog prefetch, pagination, polling, or automatic retry. Closing
 the dialog cancels an unfinished request; temporary errors offer a manual retry
 that respects `Retry-After`. External posters load directly in the browser;
@@ -116,11 +112,22 @@ The [first empty-cache catalog comparison](docs/empty-cache-catalog-results.md)
 measures the latest cold-load changes. Set `ANIBLOOM_LOCAL_CACHE_FILE` to a new
 filename to test with isolated empty storage; the default cache file is retained.
 
-### Anime title preferences and existing installations
+### Saved profiles
 
-English titles fall back to Romaji, then Native; Romaji titles fall back to English, then Native; Native titles fall back to Romaji, then English. Native means the original writing system (not always Japanese). Title preference is selected through fixed, stateless URL variants; BetterPosters artwork is automatic without accounts or user tokens.
+Open **Configure AniBloom** on the homepage or visit `/configure`. Choose an anime title style (English, Romaji, or Japanese), select at least one of the nine catalogs, arrange them, and create a password. The selector immediately updates catalog row names, and saving applies the same names to the personalized manifest. Poster labels stay English. The Japanese option prefers the original AniList title, which can use a different language for some series. The public `/manifest.json` and legacy language aliases serve English titles with all nine catalogs.
 
-Every variant uses the same nine catalog IDs, types, page size and optional filters. Already-installed legacy `/extended`, `/ranked`, and `/extended/ranked` URLs continue resolving with all nine catalog entries; new installations should use the standard manifest URL. When switching an existing installation, remove the old variant if Nuvio would otherwise display duplicate catalog rows. A new source version alone does not update the *deployed* manifest; Nuvio may also cache a previously installed manifest. Nuvio's metadata providers can override displayed titles or posters on detail pages.
+Install the generated `/<UUID>/manifest.json` in Nuvio. Anyone with the URL can install and use that profile. To edit it, open `/<UUID>/configure` or enter the UUID on the setup page. The owner signs in and enters the password when saving. The UUID and install URL stay the same. Keep the password somewhere safe. There is no password recovery.
+
+While creating or editing a profile, use **Preview** beside any catalog to see up to 12 sample titles in the selected style, including unchecked catalogs. Opening or closing a preview keeps your form selections.
+
+- **Nuvio TV:** Add the manifest URL on the TV. Use the profile's configuration link on your phone to edit it, then use **Refresh add-ons** on TV to request the updated manifest.
+- **Nuvio Android:** Use **Configure** on the installed add-on to open the profile's sign-in page. After saving, refresh the add-on if catalog changes aren't visible.
+
+Nuvio may keep its own Home row order or visibility settings. Check those if the downloaded manifest has updated but the Home screen still looks the same.
+
+For local development, profile records are stored in `.cache/addon-profiles`. Set `ANIBLOOM_LOCAL_PROFILE_DIR` to choose a different directory. For a hosted instance, set `ANIBLOOM_PUBLIC_ORIGIN` to the HTTPS origin where users open Configure and supply the existing server-side `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` settings (the legacy KV-prefixed names are also supported). Hosted profiles use a separate key namespace for each Vercel environment and have no automatic expiry. The default install is available without profile storage.
+
+To run the local profile pilot against Upstash, provide its REST URL and write token through the server environment as `ANIBLOOM_PROFILE_PILOT_REDIS_REST_URL` and `ANIBLOOM_PROFILE_PILOT_REDIS_REST_TOKEN`. Set `ANIBLOOM_PUBLIC_ORIGIN` to your localhost origin. The pilot listens on loopback and keeps its profiles and edit counters under `anibloom:profile:v1:pilot:`. It does not import local files or use these two settings for catalog caching or catalog rate limiting. Use a Redis instance with eviction disabled for saved profiles.
 
 ## Self-hosting
 

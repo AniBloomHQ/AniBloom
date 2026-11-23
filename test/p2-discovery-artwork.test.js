@@ -16,22 +16,17 @@ const seasons = {
   upcoming: { season: "WINTER", year: 2027 },
 };
 
-test("Top Season is included in every nine-catalog manifest variant", () => {
+test("Top Season is included in the default nine-catalog manifest", () => {
   const defaults = catalogDefinitions(seasons);
   const extended = catalogDefinitions(seasons, "english", { includeExtended: true });
   assert.equal(defaults.length, 9);
   assert.deepEqual(defaults.map(c => c.id), extended.map(c => c.id));
   assert.deepEqual(defaults.slice(-1).map(c => c.id), ["top_season"]);
 
-  for (const mode of ["english", "romaji", "native"]) {
-    const ranked = buildManifest(seasons, mode, { includeTop: true });
-    const both = buildManifest(seasons, mode, { includeTop: true, includeExtended: true });
-    assert.deepEqual(ranked.catalogs, both.catalogs);
-    assert.equal(ranked.catalogs.length, 9);
-    assert.equal(ranked.catalogs.at(-1).id, "top_season");
-    assert.equal(ranked.catalogs.at(-1).type, "series");
-    assert.match(ranked.catalogs.at(-1).name, mode === "native" ? /人気/ : /Top Anime/);
-  }
+  const manifest = buildManifest(seasons);
+  assert.deepEqual(manifest.catalogs, defaults);
+  assert.equal(manifest.catalogs.at(-1).type, "series");
+  assert.match(manifest.catalogs.at(-1).name, /Top Anime/);
 });
 
 test("Top Season ranks at upstream AniList query level before pagination, using one bounded page", async () => {
@@ -167,8 +162,8 @@ test("cached catalogs reuse one normalized response across poster selections and
     for (const [path, expectedPoster, expectedTitle] of [
       ["/catalog/series/current_season.json", "https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg", "Default"],
       ["/catalog/series/current_season.json?artwork=BetterPosters", "https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg", "Default"],
-      ["/romaji/catalog/series/current_season.json?artwork=BetterPosters", "https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg", "Romaji"],
-      ["/native/catalog/series/current_season.json", "https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg?lang=ja", "日本語"],
+      ["/romaji/catalog/series/current_season.json?artwork=BetterPosters", "https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg", "Default"],
+      ["/native/catalog/series/current_season.json", "https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg", "Default"],
     ]) {
       const response = await handler.fetch(new Request("https://example.test" + path));
       assert.equal(response.status, 200, path);

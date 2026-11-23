@@ -22,7 +22,9 @@ test("homepage links to the public privacy and service disclosure", () => {
 test("privacy disclosure accurately describes app data, third parties, and limits", async () => {
   const html = await readFile(new URL("../privacy.html", import.meta.url), "utf8");
   for (const phrase of [
-    "No AniBloom account or sign-in",
+    "The default install needs no sign-in",
+    "salted password hash",
+    "session cookie scoped to its configuration page",
     "IP address",
     "SHA-256",
     "search",

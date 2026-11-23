@@ -9,6 +9,9 @@ import preview from "../api/catalog-preview.js";
 import { configureLocalCatalogCache } from "../lib/catalog-runtime-cache.js";
 import { createLocalCatalogCache } from "../lib/local-catalog-cache.js";
 import { ADDON_VERSION } from "../api/version.js";
+import { BASE_URL } from "../api/config.js";
+import { createAddonProfileHandler, matchProfileRoute } from "../api/addon-profile.js";
+import { createHostedProfileStore, createLocalProfileStore } from "../lib/addon-profile-store.js";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const port = Number(process.env.PORT || 3000);
@@ -74,7 +77,11 @@ async function servePrivacyPage(response) {
   }
 }
 
-export function createPreviewServer() {
+export function createPreviewServer({
+  profileOrigin = process.env.ANIBLOOM_PUBLIC_ORIGIN ? BASE_URL : `http://localhost:${port}`,
+  profileStore = createLocalProfileStore(resolve(root, process.env.ANIBLOOM_LOCAL_PROFILE_DIR || ".cache/addon-profiles")),
+} = {}) {
+  const profileHandler = createAddonProfileHandler({ store: profileStore, origin: profileOrigin });
   return createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
   if (url.pathname.startsWith("/assets/") && await serveAsset(url.pathname, response)) return;
@@ -83,6 +90,16 @@ export function createPreviewServer() {
   const req = { method: request.method, url: url.toString(), query: Object.fromEntries(url.searchParams) };
   const res = responseAdapter(response);
   try {
+    if (matchProfileRoute(url)) {
+      const method = request.method || "GET";
+      const body = method === "POST" ? { body: request, duplex: "half" } : {};
+      const headers = new Headers(request.headers);
+      headers.set("x-forwarded-for", request.socket.remoteAddress || "");
+      const result = await profileHandler(new Request(url, { method, headers, ...body }));
+      response.writeHead(result.status, Object.fromEntries(result.headers));
+      response.end(await result.text());
+      return;
+    }
     if (url.pathname === "/") {
       const { default: home } = await import(`../api/home-selector.js?preview=${Date.now()}`);
       return home(req, res);
@@ -116,14 +133,23 @@ export function createPreviewServer() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  const pilotUrl = process.env.ANIBLOOM_PROFILE_PILOT_REDIS_REST_URL;
+  const pilotToken = process.env.ANIBLOOM_PROFILE_PILOT_REDIS_REST_TOKEN;
+  const redisPilot = Boolean(pilotUrl || pilotToken);
+  if (redisPilot && (!pilotUrl || !pilotToken)) {
+    throw new Error("The Redis pilot requires both ANIBLOOM_PROFILE_PILOT_REDIS_REST_URL and ANIBLOOM_PROFILE_PILOT_REDIS_REST_TOKEN.");
+  }
   const cacheFile = process.env.ANIBLOOM_LOCAL_CACHE_FILE
     ? resolve(root, process.env.ANIBLOOM_LOCAL_CACHE_FILE)
     : resolve(root, ".cache", "catalog-cache.json");
   const cache = await createLocalCatalogCache({ file: cacheFile });
   configureLocalCatalogCache(cache);
   configureCatalogPipeline({ optimized: true });
-  const server = createPreviewServer();
-  server.listen(port, "0.0.0.0", () => {
+  const profileStore = redisPilot
+    ? createHostedProfileStore({ url: pilotUrl, token: pilotToken }, { environment: "pilot" })
+    : undefined;
+  const server = createPreviewServer({ profileStore });
+  server.listen(port, redisPilot ? "127.0.0.1" : "0.0.0.0", () => {
     console.log(`AniBloom preview server listening on http://localhost:${port}`);
   });
   const stop = async () => {
