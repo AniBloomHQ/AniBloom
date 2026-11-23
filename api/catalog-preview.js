@@ -2,11 +2,11 @@ import { getCatalogFilter, getRollingCatalogRange, isEligibleRollingMedia } from
 import { catalogDefinitions, getSeasonInfo } from "../lib/catalog-config.js";
 import { queryAnime, queryAiringSchedulePage } from "../lib/catalog-anilist.js";
 import { toMetaFromAniList } from "../lib/catalog-meta.js";
-import { normalizeTitlePreference, projectCatalogMetas } from "../lib/title-preference.js";
 import { projectCatalogPosters } from "../lib/catalog-poster-providers.js";
 import { catalogCacheKey, catalogResponseCacheKey, getCatalogRuntimeCache, setCatalogRuntimeCache } from "../lib/catalog-runtime-cache.js";
 import { acquireCatalogRequestPermit } from "../lib/catalog-request-rate-limiter.js";
 import { withCatalogDeadline } from "../lib/catalog-deadline.js";
+import { projectCatalogMetas } from "../lib/title-preference.js";
 
 /** Display-only samples never invoke provider mapping or advertise playable IDs. */
 export function createCatalogPreviewHandler({
@@ -16,7 +16,7 @@ export function createCatalogPreviewHandler({
 } = {}) {
   const pending = new Map();
   return {
-    async fetch(request) {
+    async fetch(request, { titlePreference = "english" } = {}) {
       const headers = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" };
       const send = (body, status = 200, extra = {}) => new Response(JSON.stringify(body), { status, headers: { ...headers, ...extra } });
       if (request.method === "OPTIONS") return send({}, 200, { "Access-Control-Allow-Methods": "GET, OPTIONS" });
@@ -26,7 +26,6 @@ export function createCatalogPreviewHandler({
       if (!match && url.pathname !== "/api/catalog-preview") return send({ error: "Unknown preview route" }, 404);
       const id = match?.[3] || url.searchParams.get("id");
       const type = match?.[2] || url.searchParams.get("type");
-      const preference = normalizeTitlePreference(match?.[1] || url.searchParams.get("titleMode"));
       const date = now();
       const info = getSeasonInfo(date);
       if (!catalogDefinitions(info).some(catalog => catalog.id === id && catalog.type === type)) return send({ error: "Unknown catalog" }, 404);
@@ -37,7 +36,7 @@ export function createCatalogPreviewHandler({
         let metas;
         let artworkSource = "anilist";
         if (Array.isArray(completed?.metas)) {
-          metas = projectCatalogPosters(completed.metas, "", { titlePreference: preference });
+          metas = projectCatalogPosters(completed.metas);
           artworkSource = "catalog";
         } else {
           const key = catalogCacheKey("catalog-preview", { id, info });
@@ -71,7 +70,7 @@ export function createCatalogPreviewHandler({
             metas = await pending.get(key);
           }
         }
-        const sample = projectCatalogMetas(metas, preference).slice(0, 12).map(meta => ({
+        const sample = projectCatalogMetas(metas.slice(0, 12), titlePreference).map(meta => ({
           name: meta.name, ...(meta.poster ? { poster: meta.poster } : {}),
           ...(meta.releaseInfo ? { releaseInfo: meta.releaseInfo } : {}),
         }));

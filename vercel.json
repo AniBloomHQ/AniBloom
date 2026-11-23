@@ -5,6 +5,30 @@
   },
   "rewrites": [
     {
+      "source": "/configure",
+      "destination": "/api/addon-profile?mode=setup"
+    },
+    {
+      "source": "/:legacy(romaji|native|extended|ranked|betterposters|postersplus)+/configure",
+      "destination": "/api/addon-profile?mode=setup"
+    },
+    {
+      "source": "/:profileId([0-9a-fA-F-]{36})/configure",
+      "destination": "/api/addon-profile?mode=configure&profileId=:profileId"
+    },
+    {
+      "source": "/:profileId([0-9a-fA-F-]{36})/manifest.json",
+      "destination": "/api/addon-profile?mode=manifest&profileId=:profileId"
+    },
+    {
+      "source": "/:profileId([0-9a-fA-F-]{36})/catalog/:type/:catalogId.json",
+      "destination": "/api/addon-profile?mode=catalog&profileId=:profileId&type=:type&catalogId=:catalogId"
+    },
+    {
+      "source": "/:profileId([0-9a-fA-F-]{36})/catalog/:type/:catalogId/:extra*",
+      "destination": "/api/addon-profile?mode=catalog&profileId=:profileId&type=:type&catalogId=:catalogId&extra=:extra*"
+    },
+    {
       "source": "/betterposters/manifest.json",
       "destination": "/api/resolver-manifest?artwork=betterposters"
     },

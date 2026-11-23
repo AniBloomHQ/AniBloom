@@ -1,7 +1,6 @@
 import { catalogDefinitions, getSeasonInfo } from "./catalog-source.js";
 import { ADDON_VERSION } from "./version.js";
 import { BASE_URL } from "./config.js";
-import { normalizeTitlePreference } from "../lib/title-preference.js";
 
 export default function handler(req, res) {
   const current = getSeasonInfo(new Date());
@@ -12,27 +11,26 @@ export default function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=60, s-maxage=60, stale-while-revalidate=300");
   if (req.method === "OPTIONS") return res.json({});
-  const url = new URL(req.url || "/manifest.json", BASE_URL);
-  const preference = normalizeTitlePreference(
-    req.query?.titleMode || url.searchParams.get("titleMode") || url.pathname.split("/")[1],
-  );
-  // Legacy extended/ranked paths are kept as aliases. Every manifest variant now
-  // advertises the complete supported catalog list; Nuvio handles row visibility.
-  return res.json(buildManifest(current, preference));
+  return res.json(buildManifest(current));
 }
 
-export function buildManifest(info, titlePreference = "english") {
+export function buildManifest(info, { catalogIds, titleStyle = "english", origin = BASE_URL } = {}) {
+  const definitions = catalogDefinitions(info, titleStyle);
+  const catalogs = catalogIds
+    ? catalogIds.map(id => definitions.find(catalog => catalog.id === id)).filter(Boolean)
+    : definitions;
   return {
     id: "com.marki.nuvio.anime-releases",
     version: ADDON_VERSION,
     name: "AniBloom",
     description: "Anime discovery catalogs organized by season, release timing, and movies for Nuvio.",
-    logo: BASE_URL + "/assets/anibloom-icon.png",
+    logo: origin + "/assets/anibloom-icon.png",
+    behaviorHints: { configurable: true, configurationRequired: false },
     resources: [
       { name: "catalog", types: ["series", "movie"] },
     ],
     types: ["series", "movie"],
-    catalogs: catalogDefinitions(info, normalizeTitlePreference(titlePreference)),
+    catalogs,
     identityMode: "provider"
   };
 }

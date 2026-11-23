@@ -32,22 +32,22 @@ test("cold previews use one discovery page and return twelve display-only titles
   assert.equal(data.metas[0].id, undefined, "a display preview must not advertise unresolved playback IDs");
 });
 
-test("the direct serverless endpoint honors title preference without requiring rewrite rules", async () => {
+test("the direct serverless preview stays English regardless of query parameter overrides", async () => {
   const { app } = fixture();
   const response = await app.fetch(request("/api/catalog-preview?type=series&id=current_season&titleMode=romaji"));
   assert.equal(response.status, 200);
-  assert.equal((await response.json()).metas[0].name, "Romaji 0");
+  assert.equal((await response.json()).metas[0].name, "Title 0");
   assert.equal((await app.fetch(request("/unknown?type=series&id=current_season"))).status, 404);
 });
 
-test("previews coalesce simultaneous requests and share discovery data across title languages", async () => {
+test("previews coalesce simultaneous requests across default and legacy paths", async () => {
   const { app, calls } = fixture();
   const [english, romaji] = await Promise.all([
     app.fetch(request("/preview/series/current_season.json")),
     app.fetch(request("/romaji/preview/series/current_season.json")),
   ]);
   assert.equal((await english.json()).metas[0].name, "Title 0");
-  assert.equal((await romaji.json()).metas[0].name, "Romaji 0");
+  assert.equal((await romaji.json()).metas[0].name, "Title 0");
   assert.equal(calls(), 1);
 });
 

@@ -57,8 +57,8 @@ test("catalog handler serves a new-schema poster instead of an old cached medium
   try {
     for (const [prefix, expectedTitle] of [
       ["", "English title"],
-      ["/romaji", "Romaji title"],
-      ["/native", "日本語の題名"],
+      ["/romaji", "English title"],
+      ["/native", "English title"],
     ]) {
       const result = await catalogSource.fetch(new Request(
         `https://example.test${prefix}/catalog/series/current_season.json`,

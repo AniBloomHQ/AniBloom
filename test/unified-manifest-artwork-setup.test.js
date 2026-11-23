@@ -25,21 +25,13 @@ function homepage() {
   return html;
 }
 
-test("canonical English/Romaji/Native manifests advertise all nine supported catalogs", () => {
+test("the default English manifest advertises all nine supported catalogs", () => {
   const ordinary = buildManifest(SEASONS);
   assert.deepEqual(ordinary.catalogs.map(c => c.id), EXPECTED_IDS);
   assert.equal(new Set(ordinary.catalogs.map(c => c.id)).size, 9);
-  for (const mode of ["english", "romaji", "native"]) {
-    for (const legacy of [{}, {includeExtended: true}, {includeTop: true},
-      {includeExtended: true, includeTop: true}]) {
-      const manifest = buildManifest(SEASONS, mode, legacy);
-      assert.deepEqual(manifest.catalogs.map(c => c.id), EXPECTED_IDS, mode + JSON.stringify(legacy));
-      assert.deepEqual(manifest.catalogs.map(c => c.type), ordinary.catalogs.map(c => c.type));
-      assert.equal(manifest.catalogs.at(-1).type, "series");
-      assert.match(manifest.catalogs.at(-1).name, mode === "native" ? /人気/ : /Top Anime/);
-      for (const catalog of manifest.catalogs) assert.equal(catalog.extra.some(e => e.name === "artwork"), false);
-    }
-  }
+  assert.equal(ordinary.catalogs.at(-1).type, "series");
+  assert.match(ordinary.catalogs.at(-1).name, /Top Anime/);
+  for (const catalog of ordinary.catalogs) assert.equal(catalog.extra.some(e => e.name === "artwork"), false);
 });
 
 test("legacy manifest aliases remain addressable and expose the same full catalog set", async () => {
@@ -116,9 +108,9 @@ test("artwork manifest routes project posters from the same existing cached iden
     const cases=[
       ["/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","English title"],
       ["/betterposters/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","English title"],
-      ["/romaji/betterposters/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","Romaji title"],
+      ["/romaji/betterposters/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","English title"],
       ["/postersplus/catalog/series/current_season.json","https://posters.example.org/poster?anilist_id=11&type=series","English title"],
-      ["/native/postersplus/catalog/series/current_season.json","https://posters.example.org/poster?anilist_id=11&type=series","日本の名前"],
+      ["/native/postersplus/catalog/series/current_season.json","https://posters.example.org/poster?anilist_id=11&type=series","English title"],
       ["/betterposters/catalog/series/current_season.json?artwork=AniList",meta.poster,"English title"],
     ];
     for (const [path,poster,title] of cases) {
@@ -146,12 +138,12 @@ test("homepage shows nine catalogs and standard install URLs with automatic Bett
     "Previous Season", "Previous Season Movies", "Upcoming Season", "Upcoming Season Movies",
     "Top Anime of the Season",
   ]);
-  assert.match(html, /id="title-preference"/);
+  assert.match(html, /href="\/configure"/);
   assert.match(html, /BetterPosters automatically/);
   assert.match(html, /per-catalog/i);
   assert.match(html, /extra requests/i);
   assert.doesNotMatch(html, /id="artwork-provider"/);
   assert.doesNotMatch(html, /PostersPlus/);
-  assert.ok(html.includes('const url=origin+prefix+"/manifest.json"'));
+  assert.match(html, /nuvio:\/\/anibloom\.vercel\.app\/manifest\.json/);
   assert.doesNotMatch(html, /access_key=|api_key=|secret=/i);
 });

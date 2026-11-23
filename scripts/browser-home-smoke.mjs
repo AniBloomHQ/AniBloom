@@ -41,19 +41,14 @@ window.addEventListener("load",async()=>{
     const top=cards.find(card=>card.getAttribute("href")?.includes("/top_season.json"));
     check(!!top,"Missing Top Anime card");
     check(top?.querySelector('.catalog-icon[data-icon="trophy"]') !== null,"Top Anime trophy missing");
-    const picker=document.getElementById("title-preference");
     const manual=document.querySelector(".manual-install a");
-    check(!!picker && !!manual,"Missing install controls");
-    for(const [language,prefix] of [["english",""],["romaji","/romaji"],["native","/native"]]){
-      if(!picker)break;
-      picker.value=language;
-      picker.dispatchEvent(new Event("change",{bubbles:true}));
-      const expected=${JSON.stringify(BASE_URL)}+prefix+"/manifest.json";
-      check(manual?.href===expected,"Manual install URL incorrect for "+language);
-      if(expected.startsWith("https://")){
-        const deep=expected.replace("https://","nuvio://");
-        check([...document.querySelectorAll('a[href^="nuvio://"]')].some(a=>a.href===deep),"Deep install URL incorrect for "+language);
-      }
+    const setup=document.querySelector('a[href="/configure"]');
+    check(setup?.textContent==="Configure AniBloom","Missing profile setup link");
+    const expected=${JSON.stringify(BASE_URL)}+"/manifest.json";
+    check(manual?.href===expected,"Default manifest URL incorrect");
+    if(expected.startsWith("https://")){
+      const deep=expected.replace("https://","nuvio://");
+      check([...document.querySelectorAll('a[href^="nuvio://"]')].some(a=>a.href===deep),"Deep install URL incorrect");
     }
     const grid=document.querySelector(".catalog-grid");
     const columns=getComputedStyle(grid).gridTemplateColumns.trim().split(/\\s+/).filter(Boolean);
@@ -73,12 +68,8 @@ window.addEventListener("load",async()=>{
     check(copied===manual.href,"Copy must use selected manifest URL");
     document.getElementById("show-qr").click();
     await until(()=>!!document.querySelector("#qr-image svg"));
-    const nativeQr=document.querySelector("#qr-image path").getAttribute("d");
-    picker.value="romaji";picker.dispatchEvent(new Event("change"));
-    await until(()=>!!document.querySelector("#qr-image svg"));
-    check(document.querySelector("#qr-image path").getAttribute("d")!==nativeQr,"QR must change with title preference");
-    check(document.getElementById("qr-image").getAttribute("aria-label").includes("/romaji/manifest.json"),"QR accessibility label must follow the manifest");
-    check([...document.querySelectorAll("[data-install-link]")].every(link=>link.href===manual.href.replace("https://","nuvio://")),"All app links must follow title preference");
+    check(document.getElementById("qr-image").getAttribute("aria-label").includes(expected),"QR accessibility label must match the default manifest");
+    check([...document.querySelectorAll("[data-install-link]")].every(link=>link.href===manual.href.replace("https://","nuvio://")),"All app links must use the default manifest");
     Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText:async()=>{throw new Error("Clipboard denied");}}});
     document.getElementById("copy-manifest").click();
     await until(()=>document.getElementById("copy-status").textContent.includes("unavailable"));
@@ -88,7 +79,6 @@ window.addEventListener("load",async()=>{
     const retry=document.getElementById("preview-retry");
     const items=()=>document.querySelectorAll("#preview-titles>li");
     const close=async()=>{dialog.querySelector(".preview-close").click();await new Promise(resolve=>setTimeout(resolve,0));};
-    picker.value="english";picker.dispatchEvent(new Event("change"));
     cards[0].click();
     await until(()=>items().length>0);
     check(dialog.open&&items().length===12,"Preview must show at most 12 titles in a modal");
@@ -100,10 +90,7 @@ window.addEventListener("load",async()=>{
     cards[0].click();await until(()=>items().length>0);
     check(catalogRequests.length===1,"Reopening a fresh preview must reuse its response");
     await close();
-    picker.value="native";picker.dispatchEvent(new Event("change"));
-    cards[0].click();await until(()=>items().length>0);
-    check(new URL(catalogRequests.at(-1).url,location.href).searchParams.get("titleMode")==="native","Preview must request the selected title language");
-    await close();
+    check(!new URL(catalogRequests.at(-1).url,location.href).searchParams.has("titleMode"),"Homepage preview must use the default title style");
     scenario="empty";cards[1].click();await until(()=>status.textContent.startsWith("No titles"));
     check(items().length===0,"Empty catalog must clear old titles");await close();
     scenario="error";cards[2].click();await until(()=>!retry.hidden);
@@ -116,7 +103,7 @@ window.addEventListener("load",async()=>{
     scenario="pending";cards[5].click();await close();
     check(catalogRequests.at(-1).signal.aborted,"Closing must cancel an unfinished request");
     check(document.documentElement.scrollWidth<=window.innerWidth,"Homepage must not overflow horizontally");
-    notes.interactions="copy,QR,platforms,preview,language,cache,empty,error,retry,cancel";
+    notes.interactions="configure-link,copy,QR,platforms,preview,cache,empty,error,retry,cancel";
   } catch(error) { errors.push("Browser evaluation failed: "+String(error?.message||error)); }
   const output=document.createElement("output");
   output.id="browser-smoke-result";

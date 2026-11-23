@@ -5,14 +5,15 @@ import { createPreviewServer } from "../scripts/dev-server.js";
 import { ADDON_VERSION } from "../api/version.js";
 
 const rules = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url),"utf8")).rewrites;
+const publicRules = rules.filter(rule => !rule.destination.startsWith("/api/addon-profile?"));
 const CATALOGS = [
   "upcoming_season", "current_season", "previous_season",
   "upcoming_season_movies", "current_season_movies", "previous_season_movies",
   "upcoming_3_days", "previous_3_days", "top_season",
 ];
 const retired=["airing_today", "upcoming_7_days"];
-const manifests=rules.filter(rule=>rule.source.endsWith("/manifest.json"));
-const catalogRoutes=rules.filter(rule=>rule.source.includes("/catalog/"));
+const manifests=publicRules.filter(rule=>rule.source.endsWith("/manifest.json"));
+const catalogRoutes=publicRules.filter(rule=>rule.source.includes("/catalog/"));
 
 function catalogPath(rule, id, type, extra = "") {
   // Test precisely the publicly advertised Vercel rewrite path, not a
@@ -34,7 +35,7 @@ test("all Vercel manifest and catalog rewrite patterns are unique, with no unsup
   assert.equal(new Set(rules.map(rule=>rule.source)).size,rules.length);
   assert.equal(manifests.length,18);
   assert.equal(catalogRoutes.length,37);
-  assert.deepEqual(rules.filter(rule=>!rule.source.endsWith("/manifest.json")&&!rule.source.includes("/catalog/")).map(rule=>rule.source),["/"]);
+  assert.deepEqual(publicRules.filter(rule=>!rule.source.endsWith("/manifest.json")&&!rule.source.includes("/catalog/")).map(rule=>rule.source),["/"]);
   for(const rule of catalogRoutes){
     assert.match(rule.destination,/\/api\/catalog-source\?/);
     assert.match(rule.source,/\/catalog\/:type\/:id(?:\.json|\/)/);
@@ -49,7 +50,7 @@ test("all Vercel manifest and catalog rewrite patterns are unique, with no unsup
   assert.deepEqual(manifests.map(rule=>rule.source).filter(route=>route.endsWith("/manifest.json")).length,18);
 });
 
-test("all Vercel manifest aliases render the same nine-catalog contract with correct title variants", async () => {
+test("all Vercel manifest aliases render the same English nine-catalog contract", async () => {
   await withLocalServer(async base=>{
     for(const {source} of manifests){
       const response=await fetch(base+source);
@@ -59,9 +60,7 @@ test("all Vercel manifest aliases render the same nine-catalog contract with cor
       assert.deepEqual(manifest.catalogs.map(row=>row.id),CATALOGS,source);
       assert.equal(manifest.catalogs.find(row=>row.id==="top_season").type,"series",source);
       for(const id of retired)assert.ok(!manifest.catalogs.some(row=>row.id===id),source);
-      if(source.startsWith("/native/")){
-        assert.match(manifest.catalogs.find(row=>row.id==="top_season").name,/今期/);
-      }
+      assert.match(manifest.catalogs.find(row=>row.id==="top_season").name,/Top Anime/);
     }
   });
 });

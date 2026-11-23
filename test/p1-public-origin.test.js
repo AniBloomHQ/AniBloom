@@ -20,7 +20,7 @@ test("self-host public origin is explicit, sanitized and never trusted from Host
   assert.throws(() => resolvePublicOrigin("http://anime.example.org", { allowLocalHttp: true }), /ANIBLOOM_PUBLIC_ORIGIN/);
 });
 
-test("configured self-host domain controls the manifest logo, homepage catalog links and language install links", () => {
+test("configured self-host domain controls the manifest logo, homepage catalog links and install links", () => {
   const code = `
     import { BASE_URL } from "./api/config.js";
     import { buildManifest } from "./api/resolver-manifest.js";
@@ -32,8 +32,8 @@ test("configured self-host domain controls the manifest logo, homepage catalog l
     console.log(JSON.stringify({base:BASE_URL, logo:manifest.logo,
       catalog:html.includes("https://anime.example.org/catalog/series/top_season.json"),
       install:html.includes("https://anime.example.org/manifest.json"),
-      jsOrigin:html.includes('const origin="https://anime.example.org"'),
-      hardcoded:html.includes('const origin="https://anibloom.vercel.app"')
+      deepLink:html.includes("nuvio://anime.example.org/manifest.json"),
+      hardcoded:html.includes("nuvio://anibloom.vercel.app/manifest.json")
     }));
   `;
   const run = (env) => spawnSync(process.execPath, ["--input-type=module","-e",code],
@@ -42,7 +42,7 @@ test("configured self-host domain controls the manifest logo, homepage catalog l
   assert.equal(result.status,0,result.stderr);
   assert.deepEqual(JSON.parse(result.stdout),{
     base:"https://anime.example.org",logo:"https://anime.example.org/assets/anibloom-icon.png",
-    catalog:true,install:true,jsOrigin:true,hardcoded:false,
+    catalog:true,install:true,deepLink:true,hardcoded:false,
   });
   const invalid = run({ ANIBLOOM_PUBLIC_ORIGIN:"https://user:password@evil.example.org/" });
   assert.notEqual(invalid.status,0);

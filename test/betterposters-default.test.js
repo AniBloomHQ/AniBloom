@@ -50,7 +50,7 @@ test("default manifest advertises nine catalogs without an unnecessary artwork p
   }, "explicit old URL override must remain usable");
 });
 
-test("default canonical catalog and language variants use BetterPosters without extra upstream fetches", async () => {
+test("public catalogs and legacy language aliases use English BetterPosters without extra upstream fetches", async () => {
   const seasonInfo = getSeasonInfo(new Date());
   const cacheKey = catalogResponseCacheKey({id:"current_season",seasonInfo,skip:0,search:""});
   const cached = { id:"tt1234567",type:"series",name:"English",poster:"https://s4.anilist.co/cover.jpg",
@@ -64,8 +64,8 @@ test("default canonical catalog and language variants use BetterPosters without 
   try {
     const paths = [
       ["/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","English"],
-      ["/romaji/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","Romaji"],
-      ["/native/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg?lang=ja","日本の題名"],
+      ["/romaji/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","English"],
+      ["/native/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","English"],
       ["/betterposters/catalog/series/current_season.json","https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg","English"],
       ["/catalog/series/current_season.json?artwork=AniList","https://s4.anilist.co/cover.jpg","English"],
     ];
@@ -84,16 +84,15 @@ test("default canonical catalog and language variants use BetterPosters without 
   }
 });
 
-test("homepage offers title styles and automatic BetterPosters without a provider selector", () => {
+test("homepage links to profile setup and explains automatic BetterPosters", () => {
   const html=renderHome();
   assert.match(html,/BetterPosters/);
   assert.match(html,/automatically/i);
-  assert.match(html,/id="title-preference"/);
+  assert.match(html,/href="\/configure"/);
   assert.doesNotMatch(html,/id="artwork-provider"/);
   assert.doesNotMatch(html,/PostersPlus/);
   assert.doesNotMatch(html,/Catalog artwork source/);
   assert.match(html,/nuvio:\/\/anibloom\.vercel\.app\/manifest\.json/);
-  assert.match(html,/const url=origin\+prefix\+"\/manifest.json"/);
   assert.equal((html.match(/class="catalog-card"/g)||[]).length,8);
   assert.equal((html.match(/class="catalog-card catalog-card-optional"/g)||[]).length,1);
 });
