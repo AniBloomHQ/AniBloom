@@ -54,6 +54,31 @@ latency in provider resolution rather than the approximately one-second AniList 
 The subsequent [preview-query experiment](preview-query-experiment.md) measured
 this trade-off locally. It retained the shared query as the default.
 
+## Full-catalog request phase measurements — November 23, 2026
+
+The local benchmark used new Node processes and separate empty caches for every
+run, rebuilding Current Season page one with 50 rows. A trial removed only the
+`medium` cover URL while keeping all title-matching fields fixed. This reduced
+decoded AniList JSON from 109,538 to 104,140 bytes (4.9%) and returned the same
+50 ordered IDs and byte-for-byte identical published metadata. It did not show
+a body-time improvement, so the full cover selection is retained to preserve
+poster fallback behavior.
+
+Every full rebuild made one AniList request and 187 total upstream requests.
+The server reported Brotli (`br`) content encoding but omitted `Content-Length`,
+so the benchmark records decoded JSON bytes, not compressed wire bytes. Across
+two baseline and three trimmed runs, AniList response-header wait ranged from
+414–512 ms before and 427–491 ms during the trial. The body read took 824–830
+ms before and 818–1,741 ms during the trial. JSON parsing stayed below 1 ms in
+every sample. AniList stage diagnostics were 1,248–1,344 ms before and
+1,304–2,173 ms during the trial. The long body sample shows substantial network
+variation; the smaller decoded response did not produce a reliable speed gain.
+
+The benchmark now separates time to response headers, body read/decompression,
+and JSON parsing. The AniList response used Brotli (`br`) and had no
+`Content-Length`, so exact compressed wire bytes were unavailable; recorded
+response bytes are decoded JSON size. Hosted AniBloom requests remain blocked.
+
 References:
 - https://github.com/AniList/docs/blob/master/docs/reference/object/page.md
 - https://github.com/AniList/docs/blob/master/docs/reference/object/media.md

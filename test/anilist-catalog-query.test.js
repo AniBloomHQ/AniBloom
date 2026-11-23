@@ -100,6 +100,7 @@ test("catalog AniList queries request 50 media rows with only fields needed to r
     assert.match(request.query, /\bid\b/);
     assert.match(request.query, /title\s*\{/);
     assert.match(request.query, /coverImage\s*\{/);
+    assert.match(request.query, /coverImage\s*\{\s*extraLarge\s+large\s+medium\s*\}/);
     assert.match(request.query, /status/);
     assert.match(request.query, /startDate\s*\{/);
     assert.match(request.query, /endDate\s*\{/);
