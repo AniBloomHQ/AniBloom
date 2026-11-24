@@ -1,5 +1,6 @@
 import { renderCatalogPreviewDialog } from "../lib/catalog-preview-dialog.js";
-import { BASE_URL, REPOSITORY_URL } from "./config.js";
+import { getNuvioInstallUrl } from "../lib/nuvio-install.js";
+import { BASE_URL, REPOSITORY_URL, resolvePublicOrigin } from "./config.js";
 
 const CATALOGS = [
   ["Upcoming 3 days", "upcoming_3_days", "Anime with new episodes airing in the next 3 days."],
@@ -71,30 +72,37 @@ function card(item, { routePrefix = "", optional = false } = {}) {
   return '<a class="' + className + '" href="' + url + '" data-preview-catalog="' + id + '" data-preview-type="' + type + '" data-preview-name="' + name + '" aria-haspopup="dialog" aria-controls="catalog-preview" aria-label="Open ' + name + ' catalog"><span class="catalog-icon" data-icon="' + iconName(id) + '" aria-hidden="true">' + icon(id) + '</span><span class="catalog-copy"><strong>' + name + '</strong><span>' + description + '</span><span class="preview-prompt">Preview titles <span aria-hidden="true">↗</span></span></span><svg class="catalog-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-7-7 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>';
 }
 
-function installationGuide(manifest, install) {
-  const supportsAppLink = manifest.startsWith("https:");
+function setupSection(manifest) {
+  const instanceInstall = getNuvioInstallUrl(manifest);
+  const install = instanceInstall ?? getNuvioInstallUrl(`${resolvePublicOrigin()}/manifest.json`);
+  const manualLabel = instanceInstall ? "Open manifest URL for manual setup" : "Open local manifest URL for manual setup";
+  const options = [
+    [install, "Install default manifest", instanceInstall ? "English titles and all nine catalogs." : "English titles and all nine catalogs from the public AniBloom add-on."],
+    ["/configure", "Configure a profile", "Choose your title style and which catalogs to show."],
+    ["/login", "Sign in", "Open an existing profile with its UUID and password."],
+  ];
   return `<section class="install-guide" id="install" aria-labelledby="install-heading"><div class="container">
-    <div class="guide-heading"><div><span class="about-kicker">A little setup. A lot to discover.</span><h2 id="install-heading">Add AniBloom to Nuvio</h2><p>Install with English titles and all nine catalogs, or create a profile with your own settings.</p></div><span class="guide-badge">All 9 catalogs included</span></div>
-    <div class="install-layout"><div class="install-options">
-      <span class="step-label">01 / Your addon link</span>
-      <p><a class="outline-button" href="/configure">Configure AniBloom</a></p>
-      <p>BetterPosters automatically enhances compatible posters.</p>
-      <p class="manual-install">Manual installation: <a href="${manifest}">${manifest}</a></p>
-      <div class="manifest-actions"><button class="install-button" id="copy-manifest" type="button">Copy manifest URL</button><button class="outline-button" id="show-qr" type="button" aria-expanded="false" aria-controls="manifest-qr">Show QR code</button></div>
-      <p class="copy-status" id="copy-status" role="status" aria-live="polite"></p>
-      <div id="manifest-qr" class="manifest-qr" hidden><div id="qr-image" role="img" aria-label="QR code for the selected manifest URL"></div><p id="qr-status" role="status"></p><p>Scan to open this manifest URL on your phone, then copy it into Nuvio.</p></div>
-      <p class="local-install-note" id="local-install-note" hidden>This link uses localhost and works only on this computer. A phone or TV needs an address it can reach on your network.</p>
-      <noscript><p>Copy the manifest URL above manually. QR codes and catalog previews need JavaScript.</p></noscript>
-    </div><div class="install-instructions">
-      <span class="step-label">02 / Add it to your device</span>
-      <fieldset class="platform-picker"><legend>Where do you use Nuvio?</legend><div><label><input type="radio" name="install-platform" value="web" checked><span>Web</span></label><label><input type="radio" name="install-platform" value="mobile"><span>Mobile</span></label><label><input type="radio" name="install-platform" value="tv"><span>TV</span></label></div></fieldset>
-      <div data-platform-panel="web"><ol class="setup-steps"><li>Open Nuvio Web and select your profile.</li><li>Open Addons and choose the option to add an addon by URL.</li><li>Paste the manifest URL, confirm installation, and return to Home.</li></ol></div>
-      <div data-platform-panel="mobile" hidden><ol class="setup-steps"><li>Install and open Nuvio on your phone.</li>${supportsAppLink ? `<li>Tap <a href="${install}" data-install-link>Add to Nuvio</a> to hand the link to the app.</li><li>If the app does not open, copy the manifest URL into the addon URL field in Nuvio.</li>` : '<li>Open Addons and choose the option to add an addon by URL.</li><li>Paste a manifest URL your phone can reach. Local HTTP installation depends on your Nuvio client.</li>'}</ol></div>
-      <div data-platform-panel="tv" hidden><ol class="setup-steps"><li>Open the Addons screen in Nuvio on your TV.</li><li>Choose the custom addon or URL installation option available in your TV build.</li><li>Enter a manifest URL your TV can reach and confirm. Menu names and installation options vary by TV build.</li></ol></div>
-      <a class="guide-install-link" href="${install}" data-install-link>${supportsAppLink ? "Open in the Nuvio app" : "Open manifest URL"} <span aria-hidden="true">↗</span></a>
-      <div class="setup-finish"><span class="step-label">03 / Make it yours</span><p>Use Nuvio’s catalog controls to show, hide, and reorder your Home rows. Keep a compatible metadata provider installed for title details and artwork.</p></div>
-      <div class="setup-help"><details><summary>Top Anime is missing from Home</summary><p>Top Anime of the Season is the ninth catalog. Some clients initially show only eight rows. In Nuvio Web, open Settings → Home catalog customization to enable or reorder it using per-catalog controls; on mobile/TV, look for Catalog Customization. Home arrangements can differ by platform.</p></details><details><summary>I see duplicate catalogs</summary><p>If both the default and a saved profile are installed, remove the installation you no longer use.</p></details><details><summary>Titles open without details or artwork</summary><p>AniBloom supplies catalogs. Add a compatible metadata provider in Nuvio, such as ioametadata, Xperience, or BingeCat. External poster availability and detail-page artwork depend on the client and provider.</p></details></div>
-    </div></div></div></section>`;
+    <div class="install-options setup-panel">
+      <h2 id="install-heading">Get started</h2>
+      <p>Install AniBloom with the default settings or choose your own catalogs and title style.</p>
+      <button class="setup-start" id="start-setup" type="button" aria-haspopup="dialog" aria-controls="setup-dialog" hidden><span aria-hidden="true">▷</span> Start setup</button>
+      <p class="setup-fallback"><a href="${install}">Install default manifest</a> or <a href="/configure">configure a profile</a>. <a href="${manifest}">${manualLabel}</a>.</p>
+      <p class="setup-sign-in">Already have a profile? <a href="/login">Sign in</a>.</p>
+    </div>
+    <dialog class="catalog-preview setup-dialog" id="setup-dialog" aria-labelledby="setup-heading">
+      <div class="preview-header"><h2 id="setup-heading">Set up AniBloom</h2><button class="preview-close" type="button" aria-label="Close setup" autofocus>×</button></div>
+      <ul class="setup-choices">
+        ${options.map(([href, label, description]) => `<li><a class="setup-choice" href="${href}">
+          <span class="setup-choice-copy">
+            <span class="setup-choice-title">${label}</span>
+            <span class="setup-choice-description">${description}</span>
+          </span>
+          <span class="setup-choice-arrow" aria-hidden="true">→</span>
+        </a></li>`).join("")}
+      </ul>
+      <p class="setup-manual"><a class="guide-install-link" href="${manifest}">${manualLabel}</a></p>
+    </dialog>
+  </div></section>`;
 }
 
 function featureIcon(kind) {
@@ -108,7 +116,6 @@ function featureIcon(kind) {
 
 export default function handler(req, res) {
   const manifest = BASE_URL + "/manifest.json";
-  const install = manifest.replace("https://", "nuvio://");
   const donate = getDonationUrl();
   const html = [
     '<!doctype html><html lang="en"><head>',
@@ -120,21 +127,20 @@ export default function handler(req, res) {
     '<header class="site-header"><div class="container header-inner">',
     '<a class="brand" href="#home" aria-label="AniBloom home"><img src="/assets/anibloom-icon.png" width="43" height="43" alt=""><span class="brand-name">AniBloom</span><span class="brand-tagline">Anime Discovery for Nuvio</span></a>',
     '<nav class="desktop-nav" aria-label="Main navigation"><a class="active" href="#home" data-section-link="home" aria-current="location">Overview</a><a href="#catalogs" data-section-link="catalogs">Catalogs</a><a href="#about" data-section-link="about">About</a></nav>',
-    '<a class="install-button header-install" href="' + install + '" data-install-link><span aria-hidden="true">↓</span> Add to Nuvio</a>',
-    '<details class="mobile-menu"><summary aria-label="Open navigation menu"><span class="menu-icon" aria-hidden="true"><span></span></span></summary><nav aria-label="Mobile navigation"><a class="active" href="#home" data-section-link="home" aria-current="location">Overview</a><a href="#catalogs" data-section-link="catalogs">Catalogs</a><a href="#about" data-section-link="about">About</a><a href="' + install + '" data-install-link>Add to Nuvio</a></nav></details>',
+    '<a class="install-button header-install" href="#install"><span aria-hidden="true">↓</span> Add to Nuvio</a>',
+    '<details class="mobile-menu"><summary aria-label="Open navigation menu"><span class="menu-icon" aria-hidden="true"><span></span></span></summary><nav aria-label="Mobile navigation"><a class="active" href="#home" data-section-link="home" aria-current="location">Overview</a><a href="#catalogs" data-section-link="catalogs">Catalogs</a><a href="#about" data-section-link="about">About</a><a href="#install">Add to Nuvio</a></nav></details>',
     '</div></header><main id="main-content">',
     '<section class="hero-section" id="home"><div class="hero-stage"><div class="container hero-grid"><div class="hero-copy">',
     '<h1>Discover anime.<br>Every season.</h1><p class="hero-lead">Anime discovery catalogs, organized for Nuvio.</p>',
     '<p class="hero-description">Find upcoming seasons, current releases, and recently aired anime through focused catalogs built for a better Nuvio experience.</p>',
-    '<div class="hero-actions"><a class="install-button" href="' + install + '" data-install-link>↓ &nbsp; Add to Nuvio</a><a class="outline-button" href="#catalogs">Explore catalogs →</a></div>',
-    '<p class="setup-link">First time here? <a href="#install">Follow the installation guide <span aria-hidden="true">→</span></a></p>',
+    '<div class="hero-actions"><a class="install-button" href="#install"><span aria-hidden="true">↓</span> Add to Nuvio</a><a class="outline-button" href="#catalogs">Explore catalogs →</a></div>',
     '<p class="metadata-provider-note">Catalogs only. Use a separate metadata provider in Nuvio<br>(e.g., ioametadata, Xperience, BingeCat, or other compatible providers).</p>',
     '</div></div>',
     '<div class="hero-art"><img src="/assets/anibloom-anime-hero-artwork.webp" width="1024" height="683" alt="Anime-inspired Nuvio discovery interface on a tablet and phone, framed by cherry blossoms" fetchpriority="high"></div></div>',
     '<div class="container features"><article class="feature"><span class="feature-icon">' + featureIcon("layers") + '</span><div><h2>Seasonal discovery</h2><p>Browse anime by season, including upcoming, current, and previous releases.</p></div></article>',
     '<article class="feature"><span class="feature-icon" data-icon="radio">' + featureIcon("radio") + '</span><div><h2>Airing now &amp; next</h2><p>Follow what is airing now and what is coming up next.</p></div></article>',
-    '<article class="feature"><span class="feature-icon">' + featureIcon("bolt") + '</span><div><h2>One-click installation</h2><p>Add the addon to Nuvio with a single tap or use the manifest URL.</p></div></article></div></section>',
-    installationGuide(manifest, install),
+    '<article class="feature"><span class="feature-icon">' + featureIcon("bolt") + '</span><div><h2>Flexible setup</h2><p>Use the default catalogs or make a profile with the rows you want in Nuvio.</p></div></article></div></section>',
+    setupSection(manifest),
     '<section class="catalog-section section-reveal" id="catalogs"><div class="container"><div class="section-heading"><h2>Explore catalogs</h2><p>Nine supported catalogs to help you discover and follow anime in Nuvio. Select a catalog to preview its titles.</p></div>',
     '<div class="catalog-grid">' + CATALOGS.map((item) => card(item)).join("") + '</div>',
     '<section class="optional-catalogs" aria-labelledby="optional-catalogs-heading"><h3 id="optional-catalogs-heading">More included catalogs</h3><p>All 9 catalogs are included in the standard manifest. Top Anime of the Season is the ninth catalog and may be hidden from Home initially. In Nuvio Web, use Settings → Home; on supported TV/mobile clients, open Catalog Customization to enable or reorder it. A newly enabled ranking row may generate extra requests.</p>',

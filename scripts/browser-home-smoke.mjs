@@ -41,39 +41,48 @@ window.addEventListener("load",async()=>{
     const top=cards.find(card=>card.getAttribute("href")?.includes("/top_season.json"));
     check(!!top,"Missing Top Anime card");
     check(top?.querySelector('.catalog-icon[data-icon="trophy"]') !== null,"Top Anime trophy missing");
-    const manual=document.querySelector(".manual-install a");
-    const setup=document.querySelector('a[href="/configure"]');
-    check(setup?.textContent==="Configure AniBloom","Missing profile setup link");
+    const setupButton=document.getElementById("start-setup");
+    const setupDialog=document.getElementById("setup-dialog");
+    const setupChoices=[...setupDialog.querySelectorAll(".setup-choice")];
     const expected=${JSON.stringify(BASE_URL)}+"/manifest.json";
-    check(manual?.href===expected,"Default manifest URL incorrect");
-    if(expected.startsWith("https://")){
-      const deep=expected.replace("https://","nuvio://");
-      check([...document.querySelectorAll('a[href^="nuvio://"]')].some(a=>a.href===deep),"Deep install URL incorrect");
-    }
+    const installUrl=expected.startsWith("https://") ? expected.replace(/^https:/,"nuvio:") : "nuvio://anibloom.vercel.app/manifest.json";
+    check(!setupButton.hidden && document.querySelector(".setup-fallback").hidden,"Setup enhancement was not applied");
+    check(setupChoices.length===3,"Expected three setup options");
+    check(setupChoices[0]?.href===installUrl,"Default install URL incorrect");
+    check(setupChoices[0]?.querySelector(".setup-choice-title")?.textContent==="Install default manifest","Default install label incorrect");
+    check(document.querySelector('.setup-fallback a[href^="nuvio:"]')?.href===installUrl,"Install should work without JavaScript");
+    check(document.querySelector(".setup-fallback a:last-child")?.href===expected,"No-script manual manifest URL incorrect");
+    check(setupDialog.querySelector(".setup-manual a")?.href===expected,"Manual setup should use the current origin");
+    check(setupChoices[1]?.getAttribute("href")==="/configure","Profile setup URL incorrect");
+    check(setupChoices[2]?.getAttribute("href")==="/login","Sign-in URL incorrect");
+    check(document.querySelector('.setup-sign-in a[href="/login"]'),"Missing sign-in shortcut");
     const grid=document.querySelector(".catalog-grid");
     const columns=getComputedStyle(grid).gridTemplateColumns.trim().split(/\\s+/).filter(Boolean);
     const mobile=window.innerWidth<=700;
     check(mobile ? columns.length===1 : columns.length>=2,"Unexpected responsive column count");
     notes.viewport=window.innerWidth;notes.mobile=mobile;notes.columns=columns.length;notes.cards=cards.length;
-    check(catalogRequests.length===0,"Homepage must not prefetch catalogs");
-    const platforms=[...document.querySelectorAll('[name="install-platform"]')];
-    for(const radio of platforms){
-      radio.click();
-      check([...document.querySelectorAll("[data-platform-panel]")].every(panel=>panel.hidden===(panel.dataset.platformPanel!==radio.value)),"Platform guide did not switch: "+radio.value);
+    const mobileMenu=document.querySelector(".mobile-menu");
+    if(mobile)mobileMenu.open=true;
+    const headerInstall=document.querySelector(mobile ? '.mobile-menu a[href="#install"]' : ".header-install");
+    check(headerInstall?.getAttribute("href")==="#install","Header install link must target Get started");
+    headerInstall.click();
+    check(location.hash==="#install","Header install did not navigate to Get started");
+    if(mobile)check(!mobileMenu.open,"Mobile menu must close after navigating");
+    const heroInstall=document.querySelector(".hero-actions .install-button");
+    check(heroInstall?.getAttribute("href")==="#install","Hero install link must target Get started");
+    setupButton.focus();
+    setupButton.click();
+    check(setupDialog.open&&setupDialog.matches(":modal"),"Start setup must open a modal");
+    check(document.body.classList.contains("preview-open"),"Setup must lock background scrolling");
+    for(const choice of setupChoices){
+      const title=choice.querySelector(".setup-choice-title").getBoundingClientRect();
+      const description=choice.querySelector(".setup-choice-description").getBoundingClientRect();
+      check(description.top>=title.bottom+3,"Setup description must be on its own line below the title");
     }
-    let copied="";
-    Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText:async value=>{copied=value;}}});
-    document.getElementById("copy-manifest").click();
-    await until(()=>!!document.getElementById("copy-status").textContent);
-    check(copied===manual.href,"Copy must use selected manifest URL");
-    document.getElementById("show-qr").click();
-    await until(()=>!!document.querySelector("#qr-image svg"));
-    check(document.getElementById("qr-image").getAttribute("aria-label").includes(expected),"QR accessibility label must match the default manifest");
-    check([...document.querySelectorAll("[data-install-link]")].every(link=>link.href===manual.href.replace("https://","nuvio://")),"All app links must use the default manifest");
-    Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText:async()=>{throw new Error("Clipboard denied");}}});
-    document.getElementById("copy-manifest").click();
-    await until(()=>document.getElementById("copy-status").textContent.includes("unavailable"));
-    check(window.getSelection().toString()===manual.textContent,"Denied clipboard should select the manual URL");
+    setupDialog.querySelector(".preview-close").click();
+    await until(()=>!document.body.classList.contains("preview-open"));
+    check(!setupDialog.open&&document.activeElement===setupButton,"Closing setup must restore focus");
+    check(catalogRequests.length===0,"Homepage and setup must not prefetch catalogs");
     const dialog=document.getElementById("catalog-preview");
     const status=document.getElementById("preview-status");
     const retry=document.getElementById("preview-retry");
@@ -103,7 +112,7 @@ window.addEventListener("load",async()=>{
     scenario="pending";cards[5].click();await close();
     check(catalogRequests.at(-1).signal.aborted,"Closing must cancel an unfinished request");
     check(document.documentElement.scrollWidth<=window.innerWidth,"Homepage must not overflow horizontally");
-    notes.interactions="configure-link,copy,QR,platforms,preview,cache,empty,error,retry,cancel";
+    notes.interactions="get-started,setup-modal,preview,cache,empty,error,retry,cancel";
   } catch(error) { errors.push("Browser evaluation failed: "+String(error?.message||error)); }
   const output=document.createElement("output");
   output.id="browser-smoke-result";

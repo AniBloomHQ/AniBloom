@@ -130,7 +130,7 @@ test("artwork manifest routes project posters from the same existing cached iden
   }
 });
 
-test("homepage shows nine catalogs and standard install URLs with automatic BetterPosters", () => {
+test("homepage shows nine catalogs and setup choices for the default install and saved profiles", () => {
   const html = homepage();
   const names = [...html.matchAll(new RegExp("<strong>([^<]+)</strong>", "g"))].map(x => x[1]);
   assert.deepEqual(names, [
@@ -138,12 +138,14 @@ test("homepage shows nine catalogs and standard install URLs with automatic Bett
     "Previous Season", "Previous Season Movies", "Upcoming Season", "Upcoming Season Movies",
     "Top Anime of the Season",
   ]);
-  assert.match(html, /href="\/configure"/);
-  assert.match(html, /BetterPosters automatically/);
-  assert.match(html, /per-catalog/i);
+  assert.match(html, /class="install-button header-install" href="#install"/);
+  assert.match(html, /id="install-heading">Get started<\/h2>/);
+  assert.match(html, /class="setup-choice" href="nuvio:\/\/anibloom\.vercel\.app\/manifest\.json"/);
+  assert.match(html, /href="https:\/\/anibloom\.vercel\.app\/manifest\.json">Open manifest URL for manual setup/);
+  assert.match(html, /class="setup-choice" href="\/configure"/);
+  assert.match(html, /class="setup-choice" href="\/login"/);
   assert.match(html, /extra requests/i);
   assert.doesNotMatch(html, /id="artwork-provider"/);
   assert.doesNotMatch(html, /PostersPlus/);
-  assert.match(html, /nuvio:\/\/anibloom\.vercel\.app\/manifest\.json/);
   assert.doesNotMatch(html, /access_key=|api_key=|secret=/i);
 });

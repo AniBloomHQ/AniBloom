@@ -9,6 +9,10 @@
       "destination": "/api/addon-profile?mode=setup"
     },
     {
+      "source": "/login",
+      "destination": "/api/addon-profile?mode=login"
+    },
+    {
       "source": "/:legacy(romaji|native|extended|ranked|betterposters|postersplus)+/configure",
       "destination": "/api/addon-profile?mode=setup"
     },

@@ -19,14 +19,14 @@ const rows = [
 ];
 test("normalizes title preferences, including invalid input", () => {
   for (const value of ["native", "romaji", "english", "garbage", null, ""]) {
-    assert.equal(normalizeTitlePreference(value), value === "native" || value === "romaji" ? value : "english");
+    assert.equal(normalizeTitlePreference(value), value === "native" ? value : "english");
   }
 });
 test("projects only display titles, preserving identities and shared cached data", () => {
   const snapshot = structuredClone(rows);
   assert.equal(projectCatalogMetas(rows, "english"), rows);
   assert.deepEqual(projectCatalogMetas(rows, "native").map((m) => m.name), ["進撃の巨人", "Romaji fallback", "Untranslated"]);
-  assert.deepEqual(projectCatalogMetas(rows, "romaji").map((m) => m.name), ["Shingeki no Kyojin", "Romaji fallback", "Untranslated"]);
+  assert.equal(projectCatalogMetas(rows, "romaji"), rows);
   assert.deepEqual(rows, snapshot);
   for (const mode of ["romaji", "native"]) {
     const projected = projectCatalogMetas(rows, mode);
@@ -118,6 +118,6 @@ test("homepage links to profile setup and keeps the default installation link", 
   home({}, {status() {return this;}, setHeader() {}, send(s) {html=s;}});
   assert.match(html, /href="\/configure"/);
   assert.doesNotMatch(html, /id="title-preference"/);
-  assert.match(html, /nuvio:\/\/anibloom\.vercel\.app\/manifest\.json/);
+  assert.match(html, /class="setup-choice" href="nuvio:\/\/anibloom\.vercel\.app\/manifest\.json"/);
   assert.doesNotMatch(html, /localStorage|document\.cookie/);
 });

@@ -10,7 +10,7 @@ test("PR CI runs actual local headless Chrome homepage verification without prod
   assert.match(script,/--headless/);
   assert.match(script,/--dump-dom/);
   assert.match(script,/--window-size=/);
-  assert.match(script,/Configure AniBloom/);
+  assert.match(script,/setup-dialog/);
   assert.match(script,/top_season/);
   assert.match(script,/catalog-icon/);
   assert.doesNotMatch(script,/anibloom\.vercel\.app\/catalog\//);
