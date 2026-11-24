@@ -7,12 +7,12 @@ import { createAddonProfileHandler } from "../api/addon-profile.js";
 import { createCatalogPreviewHandler } from "../api/catalog-preview.js";
 import { getSeasonInfo } from "../lib/catalog-config.js";
 import { catalogResponseCacheKey, setCatalogRuntimeCacheForTests } from "../lib/catalog-runtime-cache.js";
-import { createLocalProfileStore } from "../lib/addon-profile-store.js";
+import { createHostedProfileStore, createLocalProfileStore } from "../lib/addon-profile-store.js";
 
 const origin = "https://anibloom.example";
 const password = "test-only-passphrase";
 const initial = { titleStyle: "native", catalog: ["top_season", "current_season"] };
-const updated = { titleStyle: "romaji", catalog: ["current_season", "previous_season_movies"] };
+const updated = { titleStyle: "english", catalog: ["current_season", "previous_season_movies"] };
 
 function request(path, { form, cookie, from = origin, method } = {}) {
   const body = new URLSearchParams();
@@ -65,6 +65,21 @@ test("saved profiles support the TV phone workflow, then Android Configure and r
   assert.match(await legacySetup.text(), /Create your AniBloom profile/);
   const profile = await createProfile(handler);
   const { configurePath, manifestPath, id, cookie } = profile;
+  const installPage = await handler(request(configurePath + "?saved=1", { cookie }));
+  const installHtml = await installPage.text();
+  assert.match(installHtml, /aria-current="step"><span class="profile-step-control"><span[^>]*>4<\/span><span>Install Addon/);
+  for (const step of [1, 2, 3]) {
+    const stepPath = configurePath + "?step=" + step;
+    assert.ok(installHtml.includes(`href="${stepPath}"`));
+    const editor = await handler(request(stepPath, { cookie }));
+    assert.ok((await editor.text()).includes(`data-start-step="${step}"`));
+  }
+  const lockedEditor = await handler(request(configurePath + "?step=3"));
+  assert.match(await lockedEditor.text(), /Sign in to edit your profile/);
+  const skippedSave = await handler(request(configurePath + "?step=4", { cookie }));
+  assert.match(await skippedSave.text(), /data-start-step="1"/);
+  assert.ok(installHtml.includes(`href="nuvio://anibloom.example/${id}/manifest.json">Install in Nuvio</a>`));
+  assert.ok(installHtml.includes(`value="https://anibloom.example/${id}/manifest.json"`));
   const catalogPath = `/${id}/catalog/series/current_season/skip=50&search=Attack&genre=Action.json`;
   const storeDump = await readFile(join(directory, id + ".json"), "utf8");
   assert.doesNotMatch(storeDump, /test-only-passphrase/);
@@ -98,7 +113,9 @@ test("saved profiles support the TV phone workflow, then Android Configure and r
     const refresh = await freshHandler(request(manifestPath));
     const refreshed = await refresh.json();
     assert.deepEqual(refreshed.catalogs.map(c => c.id), updated.catalog);
-    assert.match(refreshed.catalogs[0].name, /^Konki no Anime/);
+    assert.match(refreshed.catalogs[0].name, /^Current Season/);
+    const installation = await freshHandler(request(saved.headers.get("location"), { cookie: phoneCookie }));
+    assert.match(await installation.text(), /Install your AniBloom addon/);
     assert.equal((await freshHandler(request(`/${id}/catalog/series/top_season.json`))).status, 404);
   });
 
@@ -109,10 +126,10 @@ test("saved profiles support the TV phone workflow, then Android Configure and r
     assert.match(body, /Sign in to edit your profile/);
     assert.ok(body.includes(manifestPath));
     const edit = await handler(request(path, { cookie }));
-    assert.match(await edit.text(), /<option value="romaji" selected>/);
+    assert.match(await edit.text(), /<option value="english" selected>/);
     const catalog = await handler(request(`/api/addon-profile?mode=catalog&profileId=${id}&type=series&catalogId=current_season&skip=50&search=Attack&genre=Action`));
     const { metas } = await catalog.json();
-    assert.equal(metas[0].name, "Shingeki no Kyojin");
+    assert.equal(metas[0].name, "Attack on Titan");
     assert.equal(metas[0].id, meta.id);
     assert.deepEqual(cacheReads, [key, key]);
     const reopened = await handler(request(`/configure?profile=${id}`));
@@ -194,12 +211,13 @@ test("saved profile previews are private, allow unchecked catalogs and reflect t
   assert.equal((editHtml.match(/data-preview-catalog=/g) || []).length, 9);
   assert.match(editHtml, /<option value="native" selected>Japanese<\/option>/);
 
-  const draft = await handler(request(samplePath + "&titleStyle=romaji", { cookie }));
+  assert.equal((await handler(request(samplePath + "&titleStyle=romaji", { cookie }))).status, 400);
+  const draft = await handler(request(samplePath + "&titleStyle=english", { cookie }));
   assert.equal(draft.status, 200);
   assert.equal(draft.headers.get("Cache-Control"), "no-store");
   assert.equal(draft.headers.get("Access-Control-Allow-Origin"), null);
   const poster = "https://btttr.cc/poster/imdb/poster-default/tt1234567.jpg";
-  assert.deepEqual((await draft.json()).metas, [{ name: "Romaji title", poster }]);
+  assert.deepEqual((await draft.json()).metas, [{ name: "English title", poster }]);
   const rewritten = await handler(request(`/api/addon-profile?mode=configure&profileId=${id}&preview=previous_season_movies`, { cookie }));
   assert.deepEqual((await rewritten.json()).metas, [{ name: "日本語の作品", poster }]);
   assert.deepEqual((await store.get(id)).catalogIds, initial.catalog);
@@ -207,11 +225,127 @@ test("saved profile previews are private, allow unchecked catalogs and reflect t
   assert.equal(cacheReads, 2);
 });
 
-test("profile Vercel rewrites send the UUID and catalog route parameters to the profile handler", async () => {
+test("standalone sign-in opens the existing profile after UUID and password verification", async t => {
+  const directory = await mkdtemp(join(tmpdir(), "anibloom-login-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const handler = createAddonProfileHandler({ origin, store: createLocalProfileStore(directory) });
+  const { id, configurePath } = await createProfile(handler);
+
+  const setup = await handler(request("/configure"));
+  const setupHtml = await setup.text();
+  assert.match(setupHtml, /href="\/login">Sign in/);
+  assert.doesNotMatch(setupHtml, /Open a saved profile/);
+  const login = await handler(request("/login"));
+  assert.equal(login.status, 200);
+  assert.equal(login.headers.get("cache-control"), "no-store");
+  const loginHtml = await login.text();
+  assert.match(loginHtml, /method="post" action="\/login"/);
+  assert.match(loginHtml, /profile-main-standalone-login/);
+  assert.match(loginHtml, /name="profileId"/);
+  assert.match(loginHtml, /type="password" name="password"/);
+  assert.equal((await handler(request("/log-in"))).status, 404);
+
+  const form = { action: "login", profileId: ` ${id.toUpperCase()} `, password };
+  assert.equal((await handler(request("/login", { form, from: "https://example.test" }))).status, 403);
+  for (const fields of [
+    { ...form, password: "wrong password" },
+    { ...form, profileId: "669e4b5c-597d-4115-a8df-81f299a7f555" },
+    { ...form, profileId: "invalid UUID" },
+  ]) {
+    const rejected = await handler(request("/login", { form: fields }));
+    assert.equal(rejected.status, 401);
+    assert.equal(rejected.headers.get("set-cookie"), null);
+    assert.match(await rejected.text(), /The profile UUID or password is incorrect/);
+  }
+
+  const signedIn = await handler(request("/api/addon-profile?mode=login", { form }));
+  assert.equal(signedIn.status, 303);
+  assert.equal(signedIn.headers.get("location"), configurePath);
+  const session = signedIn.headers.get("set-cookie");
+  assert.ok(session.includes(`Path=${configurePath};`));
+  assert.match(session, /HttpOnly; SameSite=Lax; Secure/);
+  const editor = await handler(request(configurePath, { cookie: session.split(";")[0] }));
+  const editorHtml = await editor.text();
+  assert.match(editorHtml, /Edit your AniBloom profile/);
+  assert.match(editorHtml, /data-profile-wizard data-start-step="1"/);
+  assert.ok(editorHtml.includes(`href="${configurePath}?install=1">Install saved profile</a>`));
+  const install = await handler(request(configurePath + "?install=1", { cookie: session.split(";")[0] }));
+  const installHtml = await install.text();
+  assert.ok(installHtml.includes(`value="https://anibloom.example/${id}/manifest.json"`));
+  assert.doesNotMatch(installHtml, /Profile saved\./);
+});
+
+test("saving with the Upstash store updates the same UUID and returns to the install step", async t => {
+  const records = new Map();
+  const writes = [];
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    assert.equal(url, "https://redis.example/pipeline");
+    const commands = JSON.parse(options.body);
+    return Response.json(commands.map(([command, key, value, flag]) => {
+      if (command === "eval") return { result: 0 };
+      if (command === "get") return { result: records.get(key) ?? null };
+      assert.equal(command, "set");
+      writes.push({ key, flag });
+      if (flag === "xx" && !records.has(key)) return { result: null };
+      records.set(key, value);
+      return { result: "OK" };
+    }));
+  });
+  const store = createHostedProfileStore({ url: "https://redis.example", token: "test-only" }, { environment: "test" });
+  const handler = createAddonProfileHandler({ origin, store });
+  const { id, configurePath, manifestPath, cookie } = await createProfile(handler);
+  const save = await handler(request(configurePath, {
+    cookie,
+    form: { action: "save", ...updated, password },
+  }));
+  const key = `anibloom:profile:v1:test:${id}`;
+  assert.equal(save.status, 303);
+  assert.equal(save.headers.get("location"), configurePath + "?saved=1");
+  assert.deepEqual(writes, [{ key, flag: "nx" }, { key, flag: "xx" }]);
+  assert.equal(records.size, 1);
+  assert.equal(JSON.parse(records.get(key)).titleStyle, updated.titleStyle);
+  const manifest = await (await handler(request(manifestPath))).json();
+  assert.deepEqual(manifest.catalogs.map(catalog => catalog.id), updated.catalog);
+});
+
+test("legacy Romaji profiles use English and invalid wizard submissions return to the relevant step", async t => {
+  const directory = await mkdtemp(join(tmpdir(), "anibloom-profile-legacy-title-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const store = createLocalProfileStore(directory);
+  const handler = createAddonProfileHandler({ origin, store });
+  const { id, manifestPath, configurePath, cookie } = await createProfile(handler);
+  await store.put(id, { ...await store.get(id), titleStyle: "romaji" });
+  const manifest = await handler(request(manifestPath));
+  const catalogs = (await manifest.json()).catalogs;
+  assert.deepEqual(catalogs.map(catalog => catalog.id), initial.catalog);
+  assert.match(catalogs[1].name, /^Current Season/);
+  const editor = await handler(request(configurePath, { cookie }));
+  const editorHtml = await editor.text();
+  assert.match(editorHtml, /<option value="english" selected>English<\/option>/);
+  assert.doesNotMatch(editorHtml, /<option value="romaji"/);
+  assert.equal((await store.get(id)).titleStyle, "romaji");
+
+  for (const [fields, step] of [
+    [{ titleStyle: "romaji" }, 1],
+    [{ catalog: [] }, 2],
+    [{ confirmation: "a different password" }, 3],
+  ]) {
+    const failed = await handler(request("/configure", {
+      form: { action: "create", ...initial, password, confirmation: password, ...fields },
+    }));
+    assert.equal(failed.status, 400);
+    const html = await failed.text();
+    assert.ok(html.includes(`data-start-step="${step}"`));
+    assert.doesNotMatch(html, /test-only-passphrase|a different password/);
+  }
+});
+
+test("profile Vercel rewrites send sign-in, UUID and catalog routes to the profile handler", async () => {
   const config = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
   const routes = config.rewrites.filter(route => route.destination.startsWith("/api/addon-profile"));
   assert.deepEqual(routes.map(route => route.destination), [
     "/api/addon-profile?mode=setup",
+    "/api/addon-profile?mode=login",
     "/api/addon-profile?mode=setup",
     "/api/addon-profile?mode=configure&profileId=:profileId",
     "/api/addon-profile?mode=manifest&profileId=:profileId",

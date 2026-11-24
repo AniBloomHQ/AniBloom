@@ -31,9 +31,9 @@ test("configured self-host domain controls the manifest logo, homepage catalog l
     const manifest = buildManifest(getSeasonInfo(new Date("2026-11-09T12:00:00Z")));
     console.log(JSON.stringify({base:BASE_URL, logo:manifest.logo,
       catalog:html.includes("https://anime.example.org/catalog/series/top_season.json"),
-      install:html.includes("https://anime.example.org/manifest.json"),
-      deepLink:html.includes("nuvio://anime.example.org/manifest.json"),
-      hardcoded:html.includes("nuvio://anibloom.vercel.app/manifest.json")
+      install:html.includes('class="setup-choice" href="nuvio://anime.example.org/manifest.json"'),
+      manual:html.includes('href="https://anime.example.org/manifest.json"'),
+      hardcoded:html.includes("https://anibloom.vercel.app/manifest.json")
     }));
   `;
   const run = (env) => spawnSync(process.execPath, ["--input-type=module","-e",code],
@@ -42,7 +42,7 @@ test("configured self-host domain controls the manifest logo, homepage catalog l
   assert.equal(result.status,0,result.stderr);
   assert.deepEqual(JSON.parse(result.stdout),{
     base:"https://anime.example.org",logo:"https://anime.example.org/assets/anibloom-icon.png",
-    catalog:true,install:true,deepLink:true,hardcoded:false,
+    catalog:true,install:true,manual:true,hardcoded:false,
   });
   const invalid = run({ ANIBLOOM_PUBLIC_ORIGIN:"https://user:password@evil.example.org/" });
   assert.notEqual(invalid.status,0);

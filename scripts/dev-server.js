@@ -80,8 +80,14 @@ async function servePrivacyPage(response) {
 export function createPreviewServer({
   profileOrigin = process.env.ANIBLOOM_PUBLIC_ORIGIN ? BASE_URL : `http://localhost:${port}`,
   profileStore = createLocalProfileStore(resolve(root, process.env.ANIBLOOM_LOCAL_PROFILE_DIR || ".cache/addon-profiles")),
+  profileStyleHashes = "",
 } = {}) {
   const profileHandler = createAddonProfileHandler({ store: profileStore, origin: profileOrigin });
+  const hashes = profileStyleHashes.trim().split(/\s+/).filter(Boolean);
+  if (hashes.some(hash => !/^sha256-[A-Za-z0-9+/]{43}=$/.test(hash))) {
+    throw new Error("ANIBLOOM_DEV_PROFILE_STYLE_HASHES must contain only SHA-256 CSP hashes.");
+  }
+  const profileStylePolicy = hashes.map(hash => `'${hash}'`).join(" ");
   return createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
   if (url.pathname.startsWith("/assets/") && await serveAsset(url.pathname, response)) return;
@@ -96,7 +102,13 @@ export function createPreviewServer({
       const headers = new Headers(request.headers);
       headers.set("x-forwarded-for", request.socket.remoteAddress || "");
       const result = await profileHandler(new Request(url, { method, headers, ...body }));
-      response.writeHead(result.status, Object.fromEntries(result.headers));
+      const profileHeaders = Object.fromEntries(result.headers);
+      if (profileStylePolicy && profileHeaders["content-security-policy"]
+        && url.origin === profileOrigin && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+        && ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.socket.remoteAddress)) {
+        profileHeaders["content-security-policy"] += `; style-src 'self' ${profileStylePolicy}`;
+      }
+      response.writeHead(result.status, profileHeaders);
       response.end(await result.text());
       return;
     }
@@ -148,7 +160,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   const profileStore = redisPilot
     ? createHostedProfileStore({ url: pilotUrl, token: pilotToken }, { environment: "pilot" })
     : undefined;
-  const server = createPreviewServer({ profileStore });
+  const server = createPreviewServer({ profileStore, profileStyleHashes: process.env.ANIBLOOM_DEV_PROFILE_STYLE_HASHES });
   server.listen(port, redisPilot ? "127.0.0.1" : "0.0.0.0", () => {
     console.log(`AniBloom preview server listening on http://localhost:${port}`);
   });

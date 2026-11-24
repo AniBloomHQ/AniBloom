@@ -11,10 +11,11 @@ test("home page serves AniBloom generic product information", () => {
   assert.doesNotMatch(html, /ARM mapping|identity mapping|TMDB|TVDB|IMDb/i);
 });
 
-test("home page retains direct Nuvio installation and HTTPS fallback", () => {
+test("homepage installation buttons point to the setup section", () => {
   let html = "";
   const res = { status() { return this; }, setHeader() {}, send(value) { html = value; return value; } };
   handler({}, res);
-  assert.match(html, /nuvio:\/\/anibloom\.vercel\.app\/manifest\.json/);
-  assert.match(html, /https:\/\/anibloom\.vercel\.app\/manifest\.json/);
+  assert.match(html, /class="install-button header-install" href="#install"/);
+  assert.match(html, /class="hero-actions"><a class="install-button" href="#install"/);
+  assert.match(html, /id="install" aria-labelledby="install-heading"/);
 });

@@ -60,22 +60,21 @@ Existing historical poster-provider manifest paths and explicit catalog artwork 
 ## Installation
 
 1. Open the AniBloom [homepage](https://anibloom.vercel.app/).
-2. Select **Add to Nuvio**, or copy the manifest URL below into Nuvio.
+2. Select **Add to Nuvio**, then **Start setup** → **Install default manifest** to open the Nuvio app.
+
+If the app does not open, use **Open manifest URL for manual setup** and paste the URL into Nuvio.
 
 ```text
 https://anibloom.vercel.app/manifest.json
 ```
 
-For manual installation, use the same manifest URL.
-
 ### Guided setup and website previews (development)
 
-The homepage's **installation guide** offers Web, Mobile and TV steps, a
-**Copy manifest URL** button, and a QR code for the default English manifest.
-The QR code is generated locally in the browser, without an external
-QR service. If clipboard access is denied, the page selects the URL for manual
-copying. The guide also explains duplicate installations, metadata providers,
-and how to enable the ninth Top Anime row.
+Select **Start setup** in the homepage's **Get started** section to open the
+default English installation in Nuvio, configure a profile, or sign in to a saved
+profile. On a local HTTP preview, **Install default manifest** opens the public
+HTTPS addon in Nuvio. Use **Open local manifest URL for manual setup** to test
+the local addon.
 
 Select any catalog card to open a poster-and-title preview. A preview uses a
 prepared catalog when available; otherwise it requests one AniList discovery
@@ -95,9 +94,14 @@ For a local instance whose manifests should also point locally, run:
 ANIBLOOM_PUBLIC_ORIGIN=http://localhost:3000 npm run dev
 ```
 
-Open `http://localhost:3000`. A localhost manifest or QR link works only on the
+Open `http://localhost:3000`. A localhost manifest URL works only on the
 same computer. For another device, configure a reachable LAN or HTTPS origin as
 described below; local HTTP installation depends on the Nuvio client.
+
+If Codex browser annotations are blocked on local profile pages, the dev server
+accepts the browser's exact CSP stylesheet hashes in
+`ANIBLOOM_DEV_PROFILE_STYLE_HASHES` as a space-separated list of `sha256-…` values.
+The hashes apply to profile HTML served on the configured loopback origin.
 
 The local server also enables prepared-page persistence, verified identity reuse,
 compact provider lookup caching, and bounded catalog builds. See the
@@ -114,11 +118,16 @@ filename to test with isolated empty storage; the default cache file is retained
 
 ### Saved profiles
 
-Open **Configure AniBloom** on the homepage or visit `/configure`. Choose an anime title style (English, Romaji, or Japanese), select at least one of the nine catalogs, arrange them, and create a password. The selector immediately updates catalog row names, and saving applies the same names to the personalized manifest. Poster labels stay English. The Japanese option prefers the original AniList title, which can use a different language for some series. The public `/manifest.json` and legacy language aliases serve English titles with all nine catalogs.
+Choose **Configure a profile** in **Start setup** or visit `/configure`. To edit a saved profile, sign in from `/login` with its UUID and password or open its `/<UUID>/configure` page. Both use the same four steps:
 
-Install the generated `/<UUID>/manifest.json` in Nuvio. Anyone with the URL can install and use that profile. To edit it, open `/<UUID>/configure` or enter the UUID on the setup page. The owner signs in and enters the password when saving. The UUID and install URL stay the same. Keep the password somewhere safe. There is no password recovery.
+1. **Select Language.** Choose English or Japanese for anime titles and catalog names. Japanese prefers the original AniList title. Existing Romaji profiles use English at the same UUID.
+2. **Select Catalog.** Select and order at least one of the nine catalogs. Use **Preview** to see up to 12 sample titles in the selected language, including for unchecked catalogs.
+3. **Save Profile.** Create a password for a new profile or confirm changes with the existing password. Keep it somewhere safe because there is no password recovery. Edits keep the same UUID and manifest URL.
+4. **Install Addon.** Choose **Install in Nuvio** on HTTPS or copy the `/<UUID>/manifest.json` URL for manual installation. Anyone with the URL can use the profile. If it is already installed, refresh it in Nuvio to load the saved changes.
 
-While creating or editing a profile, use **Preview** beside any catalog to see up to 12 sample titles in the selected style, including unchecked catalogs. Opening or closing a preview keeps your form selections.
+Click a step in the progress bar once the required fields in earlier steps are complete. Clicking **Install Addon** from the form saves the profile first and opens the install page after the password check.
+
+Poster labels stay English. The public `/manifest.json` and legacy language aliases serve English titles with all nine catalogs.
 
 - **Nuvio TV:** Add the manifest URL on the TV. Use the profile's configuration link on your phone to edit it, then use **Refresh add-ons** on TV to request the updated manifest.
 - **Nuvio Android:** Use **Configure** on the installed add-on to open the profile's sign-in page. After saving, refresh the add-on if catalog changes aren't visible.

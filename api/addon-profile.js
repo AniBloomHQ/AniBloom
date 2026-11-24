@@ -5,7 +5,7 @@ import { BASE_URL } from "./config.js";
 import { buildManifest } from "./resolver-manifest.js";
 import { catalogDefinitions, getSeasonInfo, parseCatalogExtraPath } from "../lib/catalog-config.js";
 import { getCatalogClientIdentifier } from "../lib/catalog-request-guard.js";
-import { TITLE_PREFERENCES } from "../lib/title-preference.js";
+import { normalizeTitlePreference, TITLE_PREFERENCES } from "../lib/title-preference.js";
 import {
   checkProfilePassword, createProfileCredentials, isSignedIn, makeProfileCookie, validNewPassword,
 } from "../lib/addon-profile-auth.js";
@@ -25,6 +25,7 @@ export function matchProfileRoute(url, { allowInternal = false } = {}) {
   if (/^\/(?:(?:romaji|native|extended|ranked|betterposters|postersplus)\/)*configure\/?$/.test(url.pathname)) {
     return { mode: "setup" };
   }
+  if (/^\/login\/?$/.test(url.pathname)) return { mode: "login" };
   const parts = /^\/([^/]+)\/(configure\/?|manifest\.json|catalog\/(series|movie|anime)\/([a-z0-9_]+)(?:\.json|\/([^/]+)))$/.exec(url.pathname);
   const id = normalizeProfileId(parts?.[1]);
   if (id) {
@@ -34,7 +35,7 @@ export function matchProfileRoute(url, { allowInternal = false } = {}) {
   if (!allowInternal || url.pathname !== "/api/addon-profile") return null;
   const mode = url.searchParams.get("mode");
   const profileId = normalizeProfileId(url.searchParams.get("profileId"));
-  if (mode === "setup") return { mode };
+  if (mode === "setup" || mode === "login") return { mode };
   if (!profileId || !["configure", "manifest", "catalog"].includes(mode)) return null;
   if (mode !== "catalog") return { mode, id: profileId };
   const type = url.searchParams.get("type");
@@ -79,14 +80,14 @@ async function readForm(request) {
   }
 }
 
-function readSettings(form, definitions) {
-  const titleStyle = form.get("titleStyle");
-  const catalogIds = form.getAll("catalog");
-  const validIds = new Set(definitions.map(catalog => catalog.id));
-  if (!TITLE_PREFERENCES.includes(titleStyle)) return null;
-  if (!catalogIds.length || catalogIds.length > validIds.size || new Set(catalogIds).size !== catalogIds.length
-    || !catalogIds.every(id => validIds.has(id))) return null;
-  return { titleStyle, catalogIds };
+function readSettings(form, defaults) {
+  const preferredStyle = form.get("titleStyle");
+  const selectedIds = form.getAll("catalog");
+  const catalogIds = [...new Set(selectedIds)].filter(id => defaults.catalogIds.includes(id));
+  const settings = { titleStyle: normalizeTitlePreference(preferredStyle), catalogIds };
+  if (!TITLE_PREFERENCES.includes(preferredStyle)) return { settings, errorStep: 1 };
+  if (!catalogIds.length || catalogIds.length !== selectedIds.length) return { settings, errorStep: 2 };
+  return { settings, errorStep: null };
 }
 
 function profileCatalog(request, route, profile, origin, serveCatalog) {
@@ -99,7 +100,7 @@ function profileCatalog(request, route, profile, origin, serveCatalog) {
     if (typeof value === "string") catalogUrl.searchParams.set(key, value);
   }
   return serveCatalog(new Request(catalogUrl, { headers: request.headers, signal: request.signal }),
-    { titlePreference: profile.titleStyle }).then(response => {
+    { titlePreference: normalizeTitlePreference(profile.titleStyle) }).then(response => {
     const headers = new Headers(response.headers);
     for (const [key, value] of Object.entries(PRIVATE_HEADERS)) headers.set(key, value);
     return new Response(response.body, { status: response.status, headers });
@@ -115,6 +116,7 @@ export function createAddonProfileHandler({
     const route = matchProfileRoute(url, { allowInternal: true });
     if (!route) return json({ error: "Not found" }, 404);
     const { mode, id } = route;
+    const standaloneLogin = mode === "login";
     const addonRequest = mode === "manifest" || mode === "catalog";
     const previewRequest = (mode === "setup" || mode === "configure")
       && request.method === "GET" && url.searchParams.has("preview");
@@ -127,8 +129,8 @@ export function createAddonProfileHandler({
     const now = getSeasonInfo(new Date());
     const definitions = catalogDefinitions(now);
     const defaults = { titleStyle: "english", catalogIds: definitions.map(catalog => catalog.id) };
-    const page = (pageMode, { settings = defaults, message, status = 200, retryAfter } = {}) => new Response(
-      renderProfilePage({ mode: pageMode, seasonInfo: now, definitions, settings, id, origin, message, error: status >= 400 }),
+    const page = (pageMode, { settings = defaults, message, status = 200, retryAfter, loginId, step } = {}) => new Response(
+      renderProfilePage({ mode: pageMode, seasonInfo: now, definitions, settings, id, origin, loginId, message, error: status >= 400, step }),
       { status, headers: {
         ...PRIVATE_HEADERS,
         // Browsers suppress the Origin header on form posts from no-referrer pages.
@@ -147,7 +149,7 @@ export function createAddonProfileHandler({
           if (!store) throw new Error("Profile storage unavailable");
           const profile = await store.get(id);
           if (!profile || !isSignedIn(request, id, profile.sessionKey)) return previewError("Sign in to preview catalogs.", 401);
-          savedStyle = profile.titleStyle;
+          savedStyle = normalizeTitlePreference(profile.titleStyle);
         }
         const definition = definitions.find(catalog => catalog.id === url.searchParams.get("preview"));
         if (!definition) return previewError("Unknown catalog", 404);
@@ -168,55 +170,71 @@ export function createAddonProfileHandler({
         return lookupId ? redirect(`/${lookupId}/configure`)
           : page("create", { status: 400, message: "Enter a valid profile UUID." });
       }
+      if (standaloneLogin && request.method === "GET") return page("login");
       if (!store) throw new Error("Profile storage unavailable");
       if (request.method === "POST") {
         if (request.headers.get("origin") !== origin) return new Response("Forbidden", { status: 403, headers: PRIVATE_HEADERS });
         const form = await readForm(request);
         if (!form) return page(mode === "setup" ? "create" : "login", { status: 400, message: "Invalid form submission." });
         const action = form.get("action");
-        if (!((mode === "setup" && action === "create") || (id && ["login", "save", "logout"].includes(action)))) {
+        if (!((mode === "setup" && action === "create") || (standaloneLogin && action === "login")
+          || (id && ["login", "save", "logout"].includes(action)))) {
           return new Response("Invalid action", { status: 400, headers: PRIVATE_HEADERS });
         }
         if (action === "logout") return redirect(`/${id}/configure`, makeProfileCookie(id, null, secure));
+        const submitted = action === "login" ? null : readSettings(form, defaults);
         const client = getCatalogClientIdentifier(request);
         const retryAfter = await store.attempt(`${action === "create" ? "create" : "edit"}:${client}`, action === "create" ? 5 : 20);
         if (retryAfter > 0) return page(mode === "setup" ? "create" : "login",
-          { status: 429, retryAfter, message: "Too many attempts. Try again later." });
+          { status: 429, retryAfter, settings: submitted?.settings, step: submitted?.errorStep ?? 3, message: "Too many attempts. Try again later." });
         const password = form.get("password");
         if (action === "create") {
-          const settings = readSettings(form, definitions);
-          if (!settings) return page("create", { status: 400, message: "Choose a title style and at least one unique catalog." });
+          const { settings, errorStep } = submitted;
+          if (errorStep) return page("create", { settings, step: errorStep, status: 400, message: "Choose a title language and at least one catalog." });
           if (!validNewPassword(password) || password !== form.get("confirmation")) {
-            return page("create", { status: 400, settings, message: "Use matching passwords with at least 12 characters and at most 256 bytes." });
+            return page("create", { status: 400, settings, step: 3, message: "Use matching passwords with at least 12 characters and at most 256 bytes." });
           }
           const newId = randomUUID();
           const credentials = await createProfileCredentials(password);
           if (!(await store.put(newId, { ...settings, ...credentials }, { create: true }))) throw new Error("Profile creation failed");
           return redirect(`/${newId}/configure?saved=1`, makeProfileCookie(newId, credentials.sessionKey, secure));
         }
-        const profile = await store.get(id);
-        if (!profile) return page("unavailable", { status: 404, message: "This profile could not be found." });
+        const targetId = standaloneLogin ? normalizeProfileId(form.get("profileId")?.trim()) : id;
+        const profile = targetId ? await store.get(targetId) : null;
+        if (!profile && !standaloneLogin) return page("unavailable", { status: 404, message: "This profile could not be found." });
         if (action === "save" && !isSignedIn(request, id, profile.sessionKey)) {
           return page("login", { status: 401, message: "Sign in before editing this profile." });
         }
-        if (!(await checkProfilePassword(password, profile))) {
+        if (!profile || !(await checkProfilePassword(password, profile))) {
           return page(action === "save" ? "edit" : "login", {
-            status: 401, settings: readSettings(form, definitions) || profile, message: "The profile password is incorrect.",
+            status: 401, settings: submitted?.settings, step: 3,
+            loginId: standaloneLogin ? targetId : undefined,
+            message: standaloneLogin ? "The profile UUID or password is incorrect." : "The profile password is incorrect.",
           });
         }
-        if (action === "login") return redirect(`/${id}/configure`, makeProfileCookie(id, profile.sessionKey, secure));
-        const settings = readSettings(form, definitions);
-        if (!settings) return page("edit", { status: 400, settings: profile, message: "Choose a title style and at least one unique catalog." });
+        if (action === "login") return redirect(`/${targetId}/configure`, makeProfileCookie(targetId, profile.sessionKey, secure));
+        const { settings, errorStep } = submitted;
+        if (errorStep) return page("edit", { settings, step: errorStep, status: 400, message: "Choose a title language and at least one catalog." });
         if (!(await store.put(id, { ...profile, ...settings }))) throw new Error("Profile update failed");
         return redirect(`/${id}/configure?saved=1`);
       }
       const profile = await store.get(id);
       if (!profile) return addonRequest ? json({ error: "Profile not found" }, 404)
         : page("unavailable", { status: 404, message: "This profile could not be found." });
-      if (mode === "manifest") return json(buildManifest(now, { catalogIds: profile.catalogIds, titleStyle: profile.titleStyle, origin }));
+      const settings = { catalogIds: profile.catalogIds, titleStyle: normalizeTitlePreference(profile.titleStyle) };
+      if (mode === "manifest") return json(buildManifest(now, { ...settings, origin }));
       if (mode === "catalog") return await profileCatalog(request, route, profile, origin, serveCatalog);
       if (!isSignedIn(request, id, profile.sessionKey)) return page("login");
-      return page("edit", { settings: profile, message: url.searchParams.get("saved") === "1" ? "Profile saved." : "" });
+      const saved = url.searchParams.get("saved") === "1";
+      if (saved || url.searchParams.get("install") === "1") {
+        return page("install", { message: saved ? "Profile saved." : "" });
+      }
+      const requestedStep = url.searchParams.get("step");
+      let step = 1;
+      if (requestedStep === "2" || requestedStep === "3") {
+        step = requestedStep === "3" && settings.catalogIds.length ? 3 : 2;
+      }
+      return page("edit", { settings, step });
     } catch {
       if (previewRequest) return previewError("Preview temporarily unavailable", 503);
       return addonRequest ? json({ error: "Profile temporarily unavailable" }, 503)

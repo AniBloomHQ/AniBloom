@@ -15,7 +15,7 @@ function render(donate) {
 
 test("AniBloom homepage follows approved brand and content structure", () => {
   const html = render();
-  for (const text of ["AniBloom — Anime Discovery for Nuvio", "Discover anime.<br>Every season.", "Anime discovery catalogs, organized for Nuvio.", "Seasonal discovery", "Airing now &amp; next", "One-click installation", "Explore catalogs", "What AniBloom is", "What AniBloom is not", "Support the addon", "Where anime blooms.", "Open Source"]) assert.ok(html.includes(text), text);
+  for (const text of ["AniBloom — Anime Discovery for Nuvio", "Discover anime.<br>Every season.", "Anime discovery catalogs, organized for Nuvio.", "Seasonal discovery", "Airing now &amp; next", "Flexible setup", "Explore catalogs", "What AniBloom is", "What AniBloom is not", "Support the addon", "Where anime blooms.", "Open Source"]) assert.ok(html.includes(text), text);
   assert.match(html, /href="\/assets\/anibloom\.css"/);
   assert.doesNotMatch(html, /ARM mapping|identity mapping|TMDB|TVDB|IMDb/i);
 });
@@ -69,11 +69,10 @@ test("previous three days and airing now icons use complete in-bounds SVG paths"
   assert.match(html, /<span class="feature-icon" data-icon="radio"><svg viewBox="0 0 48 48"[^>]*><path d="M14 10Q2 24 14 38M34 10Q46 24 34 38M20 17Q13 24 20 31M28 17Q35 24 28 31"\/><circle cx="24" cy="38" r="3"[^>]*\/><\/svg>/);
 });
 
-test("Nuvio deep links and HTTPS manifest fallback are preserved", () => {
+test("default manifest and profile setup links stay available without JavaScript", () => {
   const html = render();
-  assert.match(html, /nuvio:\/\/anibloom\.vercel\.app\/manifest\.json/);
-  assert.match(html, /https:\/\/anibloom\.vercel\.app\/manifest\.json/);
-  assert.match(html, /Manual installation:/);
+  assert.match(html, /class="setup-fallback"><a href="nuvio:\/\/anibloom\.vercel\.app\/manifest\.json">Install default manifest/);
+  assert.match(html, /class="setup-fallback">.*href="\/configure".*href="https:\/\/anibloom\.vercel\.app\/manifest\.json"/);
 });
 
 test("support CTA uses DONATION_URL when configured and the canonical fallback otherwise", async () => {
@@ -161,13 +160,12 @@ test("About contains only identity details and support, without a duplicate inst
   assert.doesNotMatch(html, /footer[^]*Donate/);
 });
 
-test("homepage retains title selection with automatic BetterPosters", () => {
+test("homepage offers profile setup and explains how to enable the ninth catalog", () => {
   const html = render();
   assert.doesNotMatch(html, /id="artwork-provider"/);
-  assert.match(html, /BetterPosters/);
-  assert.doesNotMatch(html, /PostersPlus/);
-  assert.match(html, /automatically/);
-  assert.match(html, /Home catalog customization/);
+  assert.match(html, /class="setup-choice" href="\/configure"/);
+  assert.doesNotMatch(html, /id="title-preference"|PostersPlus/);
+  assert.match(html, /Settings → Home/);
   assert.doesNotMatch(html, /id="extended-catalogs"/);
   assert.doesNotMatch(html, /id="ranked-catalogs"/);
 });

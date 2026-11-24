@@ -84,15 +84,12 @@ test("public catalogs and legacy language aliases use English BetterPosters with
   }
 });
 
-test("homepage links to profile setup and explains automatic BetterPosters", () => {
+test("homepage links to profile setup without an artwork selector", () => {
   const html=renderHome();
-  assert.match(html,/BetterPosters/);
-  assert.match(html,/automatically/i);
-  assert.match(html,/href="\/configure"/);
+  assert.match(html,/class="setup-choice" href="\/configure"/);
   assert.doesNotMatch(html,/id="artwork-provider"/);
   assert.doesNotMatch(html,/PostersPlus/);
   assert.doesNotMatch(html,/Catalog artwork source/);
-  assert.match(html,/nuvio:\/\/anibloom\.vercel\.app\/manifest\.json/);
   assert.equal((html.match(/class="catalog-card"/g)||[]).length,8);
   assert.equal((html.match(/class="catalog-card catalog-card-optional"/g)||[]).length,1);
 });
